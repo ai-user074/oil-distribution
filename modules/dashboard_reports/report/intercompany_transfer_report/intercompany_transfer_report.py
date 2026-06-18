@@ -1,0 +1,39 @@
+import frappe
+
+
+def execute(filters=None):
+	if not filters:
+		filters = {}
+
+	fields = [
+		"ict.name as transfer",
+		"ict.company as from_company",
+		"ict.to_company as to_company",
+		"ict.posting_date",
+		"ict.status",
+		"ict.grand_total",
+	]
+
+	conditions = ""
+	query = """
+		select {fields}
+		from `tabInter Company Transfer` ict
+		where ict.docstatus = 1 {conditions}
+		order by ict.posting_date desc
+	""".format(
+		fields=", ".join(fields),
+		conditions=conditions,
+	)
+
+	data = frappe.db.sql(query, filters, as_dict=True)
+
+	columns = [
+		{"label": "Transfer", "fieldname": "transfer", "fieldtype": "Link", "options": "Inter Company Transfer", "width": 180},
+		{"label": "From", "fieldname": "from_company", "fieldtype": "Link", "options": "Company", "width": 180},
+		{"label": "To", "fieldname": "to_company", "fieldtype": "Link", "options": "Company", "width": 180},
+		{"label": "Posting Date", "fieldname": "posting_date", "fieldtype": "Date", "width": 130},
+		{"label": "Status", "fieldname": "status", "width": 120},
+		{"label": "Amount", "fieldname": "grand_total", "fieldtype": "Currency", "width": 120},
+	]
+
+	return columns, data

@@ -1,0 +1,14 @@
+[
+	{
+		"doctype": "DocType",
+		"name": "Inter Company Transfer"
+	},
+	{
+		"doctype": "DocType",
+		"name": "Inter Company Transfer Item"
+	},
+	{
+		"doctype": "DocType",
+		"name": "Inter Company Transfer Generated Document"
+	}
+]
