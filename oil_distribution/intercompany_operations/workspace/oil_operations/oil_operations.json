@@ -1,0 +1,202 @@
+{
+ "app": "oil_distribution",
+ "charts": [],
+ "content": "[{\"id\":\"header1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Oil Distribution Operations</b></span>\",\"col\":12}},{\"id\":\"card_transfers\",\"type\":\"card\",\"data\":{\"card_name\":\"Intercompany Transfers\",\"col\":4}},{\"id\":\"card_reservations\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Reservations\",\"col\":4}},{\"id\":\"card_insights\",\"type\":\"card\",\"data\":{\"card_name\":\"Insights\",\"col\":4}},{\"id\":\"card_reports\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":6}},{\"id\":\"card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":6}}]",
+ "creation": "2026-06-19 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "cubes",
+ "idx": 1,
+ "is_hidden": 0,
+ "label": "Oil Operations",
+ "links": [
+  {
+   "hidden": 0,
+   "icon": "arrow-right-arrow-left",
+   "is_query_report": 0,
+   "label": "Intercompany Transfers",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Inter Company Transfer",
+   "link_count": 0,
+   "link_to": "Inter Company Transfer",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Entry",
+   "link_count": 0,
+   "link_to": "Stock Entry",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "icon": "bookmark",
+   "is_query_report": 0,
+   "label": "Stock Reservations",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Reservation",
+   "link_count": 0,
+   "link_to": "Stock Reservation",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "icon": "bar-chart",
+   "is_query_report": 0,
+   "label": "Insights",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Dashboard Chart",
+   "link_count": 0,
+   "link_to": "Dashboard Chart",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Number Card",
+   "link_count": 0,
+   "link_to": "Number Card",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "icon": "bar-chart",
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "IOCL Procurement Report",
+   "link_count": 0,
+   "link_to": "IOCL Procurement Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Negative Stock Report",
+   "link_count": 0,
+   "link_to": "Negative Stock Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Available Vs Reserved",
+   "link_count": 0,
+   "link_to": "Available Vs Reserved",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Intercompany Transfer Report",
+   "link_count": 0,
+   "link_to": "Intercompany Transfer Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Company Wise Stock",
+   "link_count": 0,
+   "link_to": "Company Wise Stock",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Reserved Stock",
+   "link_count": 0,
+   "link_to": "Reserved Stock",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "icon": "settings",
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transfer Settings",
+   "link_count": 0,
+   "link_to": "Transfer Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-06-22 14:38:04.052362",
+ "modified_by": "Administrator",
+ "module": "Intercompany Operations",
+ "name": "Oil Operations",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 100.0,
+ "shortcuts": [],
+ "title": "Oil Operations",
+ "type": "Workspace"
+}

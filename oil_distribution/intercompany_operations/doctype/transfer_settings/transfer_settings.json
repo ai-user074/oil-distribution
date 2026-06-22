@@ -1,0 +1,117 @@
+{
+	"allow_guest_to_view": 0,
+	"autoname": "naming_series:",
+	"creation": "2026-06-16 00:00:00.000000",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"section_break_general",
+		"naming_series",
+		"company",
+		"section_break_warehouses",
+		"default_source_warehouse",
+		"default_target_warehouse",
+		"section_break_intercompany",
+		"auto_create_intercompany_docs",
+		"section_break_notifications",
+		"notification_email",
+		"section_break_notes",
+		"notes"
+	],
+	"fields": [
+		{
+			"fieldname": "naming_series",
+			"fieldtype": "Select",
+			"label": "Series",
+			"options": "TS-.####"
+		},
+		{
+			"fieldname": "company",
+			"fieldtype": "Link",
+			"label": "Company",
+			"options": "Company",
+			"reqd": 1
+		},
+		{
+			"fieldname": "default_source_warehouse",
+			"fieldtype": "Link",
+			"label": "Default Source Warehouse",
+			"options": "Warehouse"
+		},
+		{
+			"fieldname": "default_target_warehouse",
+			"fieldtype": "Link",
+			"label": "Default Target Warehouse",
+			"options": "Warehouse"
+		},
+		{
+			"default": "0",
+			"fieldname": "auto_create_intercompany_docs",
+			"fieldtype": "Check",
+			"label": "Auto Create Intercompany Documents"
+		},
+		{
+			"fieldname": "notes",
+			"fieldtype": "Small Text",
+			"label": "Notes"
+		},
+		{
+			"fieldname": "notification_email",
+			"fieldtype": "Small Text",
+			"label": "Notification Email(s)",
+			"description": "Comma-separated email addresses for stock alerts"
+		},
+		{
+			"collapsible": 0,
+			"fieldname": "section_break_general",
+			"fieldtype": "Section Break",
+			"label": "General"
+		},
+		{
+			"collapsible": 0,
+			"fieldname": "section_break_warehouses",
+			"fieldtype": "Section Break",
+			"label": "Default Warehouses"
+		},
+		{
+			"collapsible": 0,
+			"fieldname": "section_break_intercompany",
+			"fieldtype": "Section Break",
+			"label": "Intercompany Settings"
+		},
+		{
+			"collapsible": 0,
+			"fieldname": "section_break_notes",
+			"fieldtype": "Section Break",
+			"label": "Notes"
+		},
+		{
+			"collapsible": 0,
+			"fieldname": "section_break_notifications",
+			"fieldtype": "Section Break",
+			"label": "Notifications"
+		}
+	],
+	"issingle": 1,
+	"modified": "2026-06-16 00:00:00.000000",
+	"module": "Intercompany Operations",
+	"name": "Transfer Settings",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "Stock Manager",
+			"share": 1,
+			"write": 1
+		}
+	],
+	"sort_field": "modified",
+	"sort_order": "DESC",
+	"track_changes": 1
+}
