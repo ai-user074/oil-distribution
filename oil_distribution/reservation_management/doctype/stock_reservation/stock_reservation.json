@@ -17,7 +17,8 @@
 		"item",
 		"batch_no",
 		"reserved_qty",
-		"source_warehouse",
+		"section_break_swastik",
+		"total_reserved_for_swastik",
 		"amended_from",
 		"section_break_remarks",
 		"remarks",
@@ -89,10 +90,11 @@
 			"reqd": 1
 		},
 		{
-			"fieldname": "source_warehouse",
-			"fieldtype": "Link",
-			"label": "Source Warehouse",
-			"options": "Warehouse"
+			"fieldname": "total_reserved_for_swastik",
+			"fieldtype": "Float",
+			"label": "Total Reserved (All Companies)",
+			"read_only": 1,
+			"description": "Sum of all reserved quantities across all companies for all items"
 		},
 		{
 			"fieldname": "stock_uom",
@@ -143,6 +145,11 @@
 			"collapsible": 0,
 			"fieldname": "column_break_u47y",
 			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "section_break_swastik",
+			"fieldtype": "Section Break",
+			"label": "Swastik Tracking"
 		},
 		{
 			"collapsible": 1,

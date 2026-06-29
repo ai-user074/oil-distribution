@@ -47,19 +47,19 @@ def setup_master_data():
 
     # 3. HSN Codes
     print("\n--- HSN Codes ---")
-    for hsn in ["150910", "150810", "151210", "151800"]:
+    for hsn in ["271019"]:
         if not frappe.db.exists("GST HSN Code", hsn):
-            frappe.get_doc({"doctype": "GST HSN Code", "hsn_code": hsn, "description": f"Oil {hsn}", "uom": "Nos"}).insert(ignore_permissions=True)
+            frappe.get_doc({"doctype": "GST HSN Code", "hsn_code": hsn, "description": "Engine Oil", "uom": "Nos"}).insert(ignore_permissions=True)
             print(f"  Created: {hsn}")
     frappe.db.commit()
 
     # 4. Items with valuation rates
     print("\n--- Items ---")
     items = [
-        {"item_code": "OIL-MUSTARD", "item_name": "Mustard Oil", "hsn": "150910", "val_rate": 180},
-        {"item_code": "OIL-GROUNDNUT", "item_name": "Groundnut Oil", "hsn": "150810", "val_rate": 200},
-        {"item_code": "OIL-SUNFLOWER", "item_name": "Sunflower Oil", "hsn": "151210", "val_rate": 160},
-        {"item_code": "OIL-CASTOR", "item_name": "Castor Oil", "hsn": "151800", "val_rate": 220},
+        {"item_code": "ENGINE-10W30", "item_name": "Engine Oil 10W-30", "hsn": "271019", "val_rate": 450},
+        {"item_code": "ENGINE-15W40", "item_name": "Engine Oil 15W-40", "hsn": "271019", "val_rate": 520},
+        {"item_code": "ENGINE-20W50", "item_name": "Engine Oil 20W-50", "hsn": "271019", "val_rate": 480},
+        {"item_code": "ENGINE-5W30", "item_name": "Engine Oil 5W-30", "hsn": "271019", "val_rate": 600},
     ]
     for item_data in items:
         if not frappe.db.exists("Item", item_data["item_code"]):
@@ -185,14 +185,14 @@ def setup_master_data():
     # 9. Opening Stock (Material Receipt with valuation rate)
     print("\n--- Opening Stock ---")
     stock_data = [
-        ("Geeta Enterprise", "Available WH - GE", "OIL-MUSTARD", 500, 180),
-        ("Geeta Enterprise", "Available WH - GE", "OIL-GROUNDNUT", 300, 200),
-        ("Geeta Enterprise", "Available WH - GE", "OIL-SUNFLOWER", 200, 160),
-        ("Geeta Enterprise", "Available WH - GE", "OIL-CASTOR", 100, 220),
-        ("Global Export", "Available WH - GEX", "OIL-MUSTARD", 200, 180),
-        ("Global Export", "Available WH - GEX", "OIL-SUNFLOWER", 150, 160),
-        ("Shubham Enterprise", "Available WH - SHE", "OIL-GROUNDNUT", 250, 200),
-        ("Shubham Enterprise", "Available WH - SHE", "OIL-CASTOR", 100, 220),
+        ("Geeta Enterprise", "Available WH - GE", "ENGINE-10W30", 500, 450),
+        ("Geeta Enterprise", "Available WH - GE", "ENGINE-15W40", 300, 520),
+        ("Geeta Enterprise", "Available WH - GE", "ENGINE-20W50", 200, 480),
+        ("Geeta Enterprise", "Available WH - GE", "ENGINE-5W30", 100, 600),
+        ("Global Export", "Available WH - GEX", "ENGINE-10W30", 200, 450),
+        ("Global Export", "Available WH - GEX", "ENGINE-20W50", 150, 480),
+        ("Shubham Enterprise", "Available WH - SHE", "ENGINE-15W40", 250, 520),
+        ("Shubham Enterprise", "Available WH - SHE", "ENGINE-5W30", 100, 600),
     ]
     for company_name, warehouse, item_code, qty, rate in stock_data:
         existing = frappe.db.get_value("Bin", {"item_code": item_code, "warehouse": warehouse}, "actual_qty") or 0

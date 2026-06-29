@@ -46,7 +46,7 @@ def _create_ict(**kwargs):
 def _create_reservation(**kwargs):
     doc = frappe.new_doc("Stock Reservation")
     doc.company = kwargs.get("company", "Geeta Enterprise")
-    doc.item = kwargs.get("item", "OIL-MUSTARD")
+    doc.item = kwargs.get("item", "ENGINE-10W30")
     doc.warehouse = kwargs.get("warehouse", "Available WH - GE")
     doc.reserved_qty = kwargs.get("reserved_qty", 10)
     doc.reserved_for = kwargs.get("reserved_for", "Swastik")
@@ -73,7 +73,7 @@ def execute():
     def test_ict_basic_submit():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         )
         doc.submit()
         assert doc.status == "Transfer Created"
@@ -89,8 +89,8 @@ def execute():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
             items=[
-                {"item_code": "OIL-MUSTARD", "qty": 5, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
-                {"item_code": "OIL-GROUNDNUT", "qty": 3, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
+                {"item_code": "ENGINE-10W30", "qty": 5, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
+                {"item_code": "ENGINE-15W40", "qty": 3, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
             ],
         )
         doc.submit()
@@ -103,10 +103,10 @@ def execute():
         """After ICT submit, source warehouse qty should decrease, target should increase."""
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         )
         doc.submit()
-        source_qty = frappe.db.get_value("Bin", {"item_code": "OIL-MUSTARD", "warehouse": "Available WH - GE"}, "actual_qty") or 0
+        source_qty = frappe.db.get_value("Bin", {"item_code": "ENGINE-10W30", "warehouse": "Available WH - GE"}, "actual_qty") or 0
         doc.cancel()
         return True
 
@@ -114,7 +114,7 @@ def execute():
         try:
             doc = _create_ict(
                 company="Geeta Enterprise", to_company="Geeta Enterprise",
-                items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GE"}],
+                items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GE"}],
             )
             doc.submit()
             return False
@@ -136,7 +136,7 @@ def execute():
         try:
             doc = _create_ict(
                 company="Geeta Enterprise", to_company="Global Export",
-                items=[{"item_code": "OIL-MUSTARD", "qty": 0, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+                items=[{"item_code": "ENGINE-10W30", "qty": 0, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
             )
             doc.submit()
             return False
@@ -146,7 +146,7 @@ def execute():
     def test_ict_generated_docs_tracking():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         )
         doc.submit()
         doc_types = {gd.document_type for gd in doc.generated_documents}
@@ -157,7 +157,7 @@ def execute():
     def test_ict_cancel_cascades():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         )
         doc.submit()
         doc.cancel()
@@ -168,7 +168,7 @@ def execute():
     def test_ict_double_cancel_safety():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         )
         doc.submit()
         doc.cancel()
@@ -181,7 +181,7 @@ def execute():
     def test_ict_batch_no_transfer():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 5, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 5, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         )
         doc.submit()
         doc.cancel()
@@ -206,7 +206,7 @@ def execute():
     def test_ict_to_she():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Shubham Enterprise",
-            items=[{"item_code": "OIL-GROUNDNUT", "qty": 8, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - SHE"}],
+            items=[{"item_code": "ENGINE-15W40", "qty": 8, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - SHE"}],
         )
         doc.submit()
         assert len(doc.generated_documents) == 4
@@ -216,7 +216,7 @@ def execute():
     def test_ict_to_swk():
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Swastik",
-            items=[{"item_code": "OIL-SUNFLOWER", "qty": 6, "rate": 180, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - SWK"}],
+            items=[{"item_code": "ENGINE-20W50", "qty": 6, "rate": 180, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - SWK"}],
         )
         doc.submit()
         assert len(doc.generated_documents) == 4
@@ -371,9 +371,9 @@ def execute():
 
     def test_concurrent_reservations():
         """Two reservations for same item should both work."""
-        r1 = _create_reservation(item="OIL-CASTOR", reserved_qty=3)
+        r1 = _create_reservation(item="ENGINE-5W30", reserved_qty=3)
         r1.submit()
-        r2 = _create_reservation(item="OIL-CASTOR", reserved_qty=2)
+        r2 = _create_reservation(item="ENGINE-5W30", reserved_qty=2)
         r2.submit()
         assert r1.docstatus == 1
         assert r2.docstatus == 1
@@ -385,11 +385,11 @@ def execute():
         """ICT creates stock, reservation uses it."""
         doc = _create_ict(
             company="Geeta Enterprise", to_company="Global Export",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         )
         doc.submit()
         doc.cancel()
-        r = _create_reservation(company="Geeta Enterprise", item="OIL-MUSTARD", warehouse="Available WH - GE", reserved_qty=5)
+        r = _create_reservation(company="Geeta Enterprise", item="ENGINE-10W30", warehouse="Available WH - GE", reserved_qty=5)
         r.submit()
         r.release_reservation()
         return True

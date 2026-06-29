@@ -144,3 +144,24 @@ class StockReservation(frappe.model.document.Document):
 		self.status = "Released"
 		self.update_stock_ledger(reserve=False)
 		self.db_update()
+
+	@frappe.whitelist()
+	def get_swastik_total_reserved(self):
+		"""Get total reserved quantity across all companies for all items."""
+		exclude = ""
+		params = []
+		if self.name:
+			exclude = "AND name != %s"
+			params.append(self.name)
+
+		total = frappe.db.sql(
+			"""
+			SELECT COALESCE(SUM(reserved_qty), 0)
+			FROM `tabStock Reservation`
+			WHERE docstatus = 1 AND status = 'Reserved'
+			{}
+			""".format(exclude),
+			params,
+			as_dict=False,
+		)
+		return flt(total[0][0]) if total else 0

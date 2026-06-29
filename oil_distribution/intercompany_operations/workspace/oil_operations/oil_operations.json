@@ -1,7 +1,7 @@
 {
  "app": "oil_distribution",
  "charts": [],
- "content": "[{\"id\":\"header1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Oil Distribution Operations</b></span>\",\"col\":12}},{\"id\":\"card_transfers\",\"type\":\"card\",\"data\":{\"card_name\":\"Intercompany Transfers\",\"col\":4}},{\"id\":\"card_reservations\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Reservations\",\"col\":4}},{\"id\":\"card_insights\",\"type\":\"card\",\"data\":{\"card_name\":\"Insights\",\"col\":4}},{\"id\":\"card_reports\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":6}},{\"id\":\"card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":6}}]",
+ "content": "[{\"id\":\"header1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Oil Distribution Operations</b></span>\",\"col\":12}},{\"id\":\"card_dashboard\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Dashboard\",\"col\":6}},{\"id\":\"card_insights\",\"type\":\"card\",\"data\":{\"card_name\":\"Insights\",\"col\":6}},{\"id\":\"card_transfers\",\"type\":\"card\",\"data\":{\"card_name\":\"Intercompany Transfers\",\"col\":4}},{\"id\":\"card_reservations\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Reservations\",\"col\":4}},{\"id\":\"card_reports\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
  "creation": "2026-06-19 00:00:00",
  "custom_blocks": [],
  "docstatus": 0,
@@ -13,6 +13,26 @@
  "is_hidden": 0,
  "label": "Oil Operations",
  "links": [
+  {
+   "hidden": 0,
+   "icon": "dashboard",
+   "is_query_report": 0,
+   "label": "Stock Dashboard",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Dashboard",
+   "link_count": 0,
+   "link_to": "stock-dashboard",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
   {
    "hidden": 0,
    "icon": "arrow-right-arrow-left",
@@ -184,7 +204,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-06-22 14:38:04.052362",
+ "modified": "2026-06-29 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Intercompany Operations",
  "name": "Oil Operations",

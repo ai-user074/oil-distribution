@@ -75,7 +75,7 @@ def test_ict_single_item():
     """Create ICT with single item, verify 4 linked docs created."""
     ict = _create_ict(
         company="Geeta Enterprise", to_company="Global Export",
-        items=[{"item_code": "OIL-MUSTARD", "qty": 50, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+        items=[{"item_code": "ENGINE-10W30", "qty": 50, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
     )
     ict.submit()
 
@@ -105,8 +105,8 @@ def test_ict_multi_items():
     ict = _create_ict(
         company="Geeta Enterprise", to_company="Global Export",
         items=[
-            {"item_code": "OIL-MUSTARD", "qty": 30, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
-            {"item_code": "OIL-GROUNDNUT", "qty": 20, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
+            {"item_code": "ENGINE-10W30", "qty": 30, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
+            {"item_code": "ENGINE-15W40", "qty": 20, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"},
         ],
     )
     ict.submit()
@@ -126,7 +126,7 @@ def test_ict_same_company_rejected():
     try:
         ict = _create_ict(
             company="Geeta Enterprise", to_company="Geeta Enterprise",
-            items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GE"}],
+            items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GE"}],
         )
         ict.insert(ignore_permissions=True)
         frappe.throw("Should have raised error")
@@ -159,7 +159,7 @@ def test_ict_cancel_cascades():
     """Cancelling ICT sets status to Cancelled and attempts to cancel linked docs."""
     ict = _create_ict(
         company="Geeta Enterprise", to_company="Global Export",
-        items=[{"item_code": "OIL-MUSTARD", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+        items=[{"item_code": "ENGINE-10W30", "qty": 10, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
     )
     ict.submit()
 
@@ -179,7 +179,7 @@ def test_ict_ge_to_she():
     """Transfer from Geeta Enterprise to Shubham Enterprise."""
     ict = _create_ict(
         company="Geeta Enterprise", to_company="Shubham Enterprise",
-        items=[{"item_code": "OIL-GROUNDNUT", "qty": 25, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - SHE"}],
+        items=[{"item_code": "ENGINE-15W40", "qty": 25, "rate": 250, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - SHE"}],
     )
     ict.submit()
 
@@ -199,7 +199,7 @@ def test_ict_with_batch():
     ict = _create_ict(
         company="Geeta Enterprise", to_company="Global Export",
         items=[{
-            "item_code": "OIL-MUSTARD", "qty": 10, "rate": 200,
+            "item_code": "ENGINE-10W30", "qty": 10, "rate": 200,
             "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX",
             "batch_no": None,  # No batch stock yet, just testing field is accepted
         }],
@@ -222,7 +222,7 @@ def test_ict_with_taxes():
 
     ict = _create_ict(
         company="Geeta Enterprise", to_company="Global Export",
-        items=[{"item_code": "OIL-MUSTARD", "qty": 20, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
+        items=[{"item_code": "ENGINE-10W30", "qty": 20, "rate": 200, "source_warehouse": "Available WH - GE", "target_warehouse": "Available WH - GEX"}],
         sales_tax_template=sales_tax,
         purchase_tax_template=purchase_tax,
     )
@@ -248,14 +248,14 @@ def test_ict_with_taxes():
 
 def test_reservation_basic():
     """Create basic reservation, verify stock moves to reserved warehouse."""
-    available_before = _get_bin("OIL-MUSTARD", "Available WH - GE")
-    reserved_before = _get_bin("OIL-MUSTARD", "Reserved WH - GE")
+    available_before = _get_bin("ENGINE-10W30", "Available WH - GE")
+    reserved_before = _get_bin("ENGINE-10W30", "Reserved WH - GE")
 
     sr = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise",
         "warehouse": "Available WH - GE",
-        "item": "OIL-MUSTARD",
+        "item": "ENGINE-10W30",
         "reserved_qty": 50,
         "reserved_for": "Swastik",
         "posting_date": today(),
@@ -263,15 +263,15 @@ def test_reservation_basic():
     sr.insert(ignore_permissions=True)
     sr.submit()
 
-    available_after = _get_bin("OIL-MUSTARD", "Available WH - GE")
-    reserved_after = _get_bin("OIL-MUSTARD", "Reserved WH - GE")
+    available_after = _get_bin("ENGINE-10W30", "Available WH - GE")
+    reserved_after = _get_bin("ENGINE-10W30", "Reserved WH - GE")
 
     assert flt(available_after) == flt(available_before) - 50, f"Available should decrease by 50: {available_before} -> {available_after}"
     assert flt(reserved_after) == flt(reserved_before) + 50, f"Reserved should increase by 50: {reserved_before} -> {reserved_after}"
     assert sr.stock_entry, "Stock Entry should be linked"
     assert sr.status == "Reserved"
 
-    print(f"  Reserved 50 OIL-MUSTARD: SE={sr.stock_entry}")
+    print(f"  Reserved 50 ENGINE-10W30: SE={sr.stock_entry}")
     print("  PASS: Basic reservation works")
     return "PASS"
 
@@ -281,7 +281,7 @@ def test_reservation_multi_item():
     sr1 = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise", "warehouse": "Available WH - GE",
-        "item": "OIL-MUSTARD", "reserved_qty": 30, "posting_date": today(),
+        "item": "ENGINE-10W30", "reserved_qty": 30, "posting_date": today(),
     })
     sr1.insert(ignore_permissions=True)
     sr1.submit()
@@ -289,7 +289,7 @@ def test_reservation_multi_item():
     sr2 = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise", "warehouse": "Available WH - GE",
-        "item": "OIL-GROUNDNUT", "reserved_qty": 20, "posting_date": today(),
+        "item": "ENGINE-15W40", "reserved_qty": 20, "posting_date": today(),
     })
     sr2.insert(ignore_permissions=True)
     sr2.submit()
@@ -306,7 +306,7 @@ def test_negative_stock_warning():
     sr = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise", "warehouse": "Available WH - GE",
-        "item": "OIL-CASTOR", "reserved_qty": 9999, "posting_date": today(),
+        "item": "ENGINE-5W30", "reserved_qty": 9999, "posting_date": today(),
     })
     sr.insert(ignore_permissions=True)
     sr.submit()
@@ -320,25 +320,25 @@ def test_negative_stock_warning():
 
 def test_reservation_release():
     """Release reservation moves stock back to available warehouse."""
-    available_before = _get_bin("OIL-GROUNDNUT", "Available WH - GE")
-    reserved_before = _get_bin("OIL-GROUNDNUT", "Reserved WH - GE")
+    available_before = _get_bin("ENGINE-15W40", "Available WH - GE")
+    reserved_before = _get_bin("ENGINE-15W40", "Reserved WH - GE")
 
     sr = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise", "warehouse": "Available WH - GE",
-        "item": "OIL-GROUNDNUT", "reserved_qty": 30, "posting_date": today(),
+        "item": "ENGINE-15W40", "reserved_qty": 30, "posting_date": today(),
     })
     sr.insert(ignore_permissions=True)
     sr.submit()
 
-    available_mid = _get_bin("OIL-GROUNDNUT", "Available WH - GE")
-    reserved_mid = _get_bin("OIL-GROUNDNUT", "Reserved WH - GE")
+    available_mid = _get_bin("ENGINE-15W40", "Available WH - GE")
+    reserved_mid = _get_bin("ENGINE-15W40", "Reserved WH - GE")
 
     sr.release_reservation()
     assert sr.status == "Released"
 
-    available_after = _get_bin("OIL-GROUNDNUT", "Available WH - GE")
-    reserved_after = _get_bin("OIL-GROUNDNUT", "Reserved WH - GE")
+    available_after = _get_bin("ENGINE-15W40", "Available WH - GE")
+    reserved_after = _get_bin("ENGINE-15W40", "Reserved WH - GE")
 
     assert flt(available_after) == flt(available_mid) + 30
     assert flt(reserved_after) == flt(reserved_mid) - 30
@@ -350,12 +350,12 @@ def test_reservation_release():
 
 def test_reservation_cancel():
     """Cancel reservation moves stock back to available warehouse."""
-    available_before = _get_bin("OIL-SUNFLOWER", "Available WH - GE")
+    available_before = _get_bin("ENGINE-20W50", "Available WH - GE")
 
     sr = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise", "warehouse": "Available WH - GE",
-        "item": "OIL-SUNFLOWER", "reserved_qty": 25, "posting_date": today(),
+        "item": "ENGINE-20W50", "reserved_qty": 25, "posting_date": today(),
     })
     sr.insert(ignore_permissions=True)
     sr.submit()
@@ -363,7 +363,7 @@ def test_reservation_cancel():
     sr.cancel()
     assert sr.status == "Cancelled"
 
-    available_after = _get_bin("OIL-SUNFLOWER", "Available WH - GE")
+    available_after = _get_bin("ENGINE-20W50", "Available WH - GE")
     assert flt(available_after) == flt(available_before), "Stock should be restored after cancel"
 
     print(f"  Cancelled {sr.name}: stock restored")
@@ -376,7 +376,7 @@ def test_reservation_for_swastik():
     sr = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise", "warehouse": "Available WH - GE",
-        "item": "OIL-MUSTARD", "reserved_qty": 15, "reserved_for": "Swastik",
+        "item": "ENGINE-10W30", "reserved_qty": 15, "reserved_for": "Swastik",
         "posting_date": today(), "remarks": "Reserved for Swastik distribution",
     })
     sr.insert(ignore_permissions=True)
@@ -394,7 +394,7 @@ def test_reservation_for_po():
     sr = frappe.get_doc({
         "doctype": "Stock Reservation",
         "company": "Geeta Enterprise", "warehouse": "Available WH - GE",
-        "item": "OIL-CASTOR", "reserved_qty": 10, "reserved_for": "Purchase Order",
+        "item": "ENGINE-5W30", "reserved_qty": 10, "reserved_for": "Purchase Order",
         "posting_date": today(),
     })
     sr.insert(ignore_permissions=True)

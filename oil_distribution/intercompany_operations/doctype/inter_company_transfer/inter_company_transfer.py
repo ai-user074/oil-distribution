@@ -140,7 +140,7 @@ class InterCompanyTransfer(StockController):
 		so.save(ignore_permissions=True)
 		so.submit()
 
-		self.append_generated_doc("Sales Order", so.name, so.company, so.docstatus)
+		self.append_generated_doc("Sales Order", so.name, so.company, so.docstatus, so.transaction_date, so.grand_total)
 		return so
 
 	def create_purchase_order_from_so(self, so_name):
@@ -173,7 +173,7 @@ class InterCompanyTransfer(StockController):
 		po.save(ignore_permissions=True)
 		po.submit()
 
-		self.append_generated_doc("Purchase Order", po.name, po.company, po.docstatus)
+		self.append_generated_doc("Purchase Order", po.name, po.company, po.docstatus, po.transaction_date, po.grand_total)
 		return po
 
 	def create_delivery_note_from_so(self, so_name):
@@ -198,7 +198,7 @@ class InterCompanyTransfer(StockController):
 		dn.save(ignore_permissions=True)
 		dn.submit()
 
-		self.append_generated_doc("Delivery Note", dn.name, dn.company, dn.docstatus)
+		self.append_generated_doc("Delivery Note", dn.name, dn.company, dn.docstatus, dn.posting_date, dn.grand_total)
 		return dn
 
 	def create_purchase_receipt_from_dn(self, dn_name):
@@ -222,16 +222,18 @@ class InterCompanyTransfer(StockController):
 		pr.save(ignore_permissions=True)
 		pr.submit()
 
-		self.append_generated_doc("Purchase Receipt", pr.name, pr.company, pr.docstatus)
+		self.append_generated_doc("Purchase Receipt", pr.name, pr.company, pr.docstatus, pr.posting_date, pr.grand_total)
 		return pr
 
-	def append_generated_doc(self, doctype, name, company, docstatus):
+	def append_generated_doc(self, doctype, name, company, docstatus, posting_date=None, grand_total=0):
 		status_map = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
 		self.append("generated_documents", {
 			"document_type": doctype,
 			"document_name": name,
 			"company": company,
 			"status": status_map.get(docstatus, "Draft"),
+			"posting_date": posting_date or self.posting_date,
+			"grand_total": grand_total,
 			"creation": frappe.utils.now(),
 		})
 
