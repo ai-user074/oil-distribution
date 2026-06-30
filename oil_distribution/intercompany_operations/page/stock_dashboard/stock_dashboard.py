@@ -3,6 +3,65 @@ from frappe.utils import flt
 
 
 @frappe.whitelist()
+def get_swastik_total():
+    """Get total reserved quantity across all companies for all items (Swastik tracking)."""
+    result = frappe.db.sql(
+        """
+        SELECT
+            COALESCE(SUM(reserved_qty), 0) as total_reserved,
+            COUNT(*) as total_reservations,
+            COUNT(DISTINCT company) as companies_count,
+            COUNT(DISTINCT item) as items_count
+        FROM `tabStock Reservation`
+        WHERE docstatus = 1 AND status = 'Reserved'
+        """,
+        as_dict=True,
+    )
+    data = result[0] if result else {"total_reserved": 0, "total_reservations": 0, "companies_count": 0, "items_count": 0}
+
+    # Per-company breakdown
+    company_data = frappe.db.sql(
+        """
+        SELECT
+            company,
+            COALESCE(SUM(reserved_qty), 0) as total_reserved,
+            COUNT(*) as reservations,
+            COUNT(DISTINCT item) as items
+        FROM `tabStock Reservation`
+        WHERE docstatus = 1 AND status = 'Reserved'
+        GROUP BY company
+        ORDER BY total_reserved DESC
+        """,
+        as_dict=True,
+    )
+
+    # Per-item breakdown
+    item_data = frappe.db.sql(
+        """
+        SELECT
+            item,
+            COALESCE(SUM(reserved_qty), 0) as total_reserved,
+            COUNT(*) as reservations,
+            COUNT(DISTINCT company) as companies
+        FROM `tabStock Reservation`
+        WHERE docstatus = 1 AND status = 'Reserved'
+        GROUP BY item
+        ORDER BY total_reserved DESC
+        """,
+        as_dict=True,
+    )
+
+    return {
+        "total_reserved": flt(data.total_reserved),
+        "total_reservations": data.total_reservations,
+        "companies_count": data.companies_count,
+        "items_count": data.items_count,
+        "by_company": company_data,
+        "by_item": item_data,
+    }
+
+
+@frappe.whitelist()
 def get_stock_summary():
     """Get stock summary for all companies grouped by warehouse."""
     companies = frappe.get_all("Company", filters={}, fields=["name", "abbr"])

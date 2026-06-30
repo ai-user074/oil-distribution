@@ -35,10 +35,12 @@ class StockDashboard {
 					</div>
 				</div>
 			</div>
+			<div id="swastik-reserved-card" class="row mb-3"></div>
 			<div id="stock-summary-cards" class="row mb-3"></div>
 			<div id="stock-dashboard-content"></div>
 		`);
 
+		this.load_swastik_card();
 		this.load_company_view();
 
 		$('#stock-view-type').on('change', () => {
@@ -50,12 +52,69 @@ class StockDashboard {
 		});
 
 		$('#refresh-stock').on('click', () => {
+			this.load_swastik_card();
 			if ($('#stock-view-type').val() === 'company') {
 				this.load_company_view();
 			} else {
 				this.load_item_view();
 			}
 		});
+	}
+
+	load_swastik_card() {
+		frappe.call({
+			method: 'oil_distribution.intercompany_operations.page.stock_dashboard.stock_dashboard.get_swastik_total',
+			callback: (r) => {
+				if (r.message) {
+					this.render_swastik_card(r.message);
+				}
+			}
+		});
+	}
+
+	render_swastik_card(data) {
+		let company_badges = '';
+		if (data.by_company && data.by_company.length) {
+			company_badges = data.by_company.map(c =>
+				`<span class="badge badge-secondary ml-1">${c.company}: ${format_number(c.total_reserved)}</span>`
+			).join('');
+		}
+
+		let item_badges = '';
+		if (data.by_item && data.by_item.length) {
+			item_badges = data.by_item.map(i =>
+				`<span class="badge badge-light ml-1">${i.item}: ${format_number(i.total_reserved)}</span>`
+			).join('');
+		}
+
+		$('#swastik-reserved-card').html(`
+			<div class="col-md-12">
+				<div class="frappe-card" style="border-left: 4px solid var(--primary);">
+					<div class="card-body">
+						<div class="row">
+							<div class="col-md-3 text-center">
+								<div class="text-muted mb-1" style="font-size: 12px;">Reserved for Swastik (Total)</div>
+								<h2 class="mt-0 mb-0" style="color: var(--primary);">${format_number(data.total_reserved)}</h2>
+								<div class="text-muted" style="font-size: 11px;">${data.total_reservations} reservations</div>
+							</div>
+							<div class="col-md-3 text-center">
+								<div class="text-muted mb-1" style="font-size: 12px;">Companies</div>
+								<h3 class="mt-0 mb-0">${data.companies_count}</h3>
+							</div>
+							<div class="col-md-3 text-center">
+								<div class="text-muted mb-1" style="font-size: 12px;">Items Reserved</div>
+								<h3 class="mt-0 mb-0">${data.items_count}</h3>
+							</div>
+							<div class="col-md-3">
+								<div class="text-muted mb-1" style="font-size: 12px;">By Company</div>
+								<div>${company_badges || '<span class="text-muted">None</span>'}</div>
+								<div class="mt-1" style="font-size: 11px;"><strong>By Item:</strong> ${item_badges || '<span class="text-muted">None</span>'}</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		`);
 	}
 
 	load_company_view() {

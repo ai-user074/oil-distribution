@@ -30,6 +30,10 @@ doc_events = {
     "Stock Entry": {
         "on_submit": "oil_distribution.api.stock_events.handle_stock_entry_submit",
         "on_cancel": "oil_distribution.api.stock_events.handle_stock_entry_cancel",
+    },
+    "Stock Reservation": {
+        "on_submit": "oil_distribution.reservation_management.doctype.stock_reservation.stock_reservation.recalculate_on_change",
+        "on_cancel": "oil_distribution.reservation_management.doctype.stock_reservation.stock_reservation.recalculate_on_change",
     }
 }
 

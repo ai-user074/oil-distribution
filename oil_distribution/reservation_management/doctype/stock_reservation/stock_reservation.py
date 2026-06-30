@@ -165,3 +165,26 @@ class StockReservation(frappe.model.document.Document):
 			as_dict=False,
 		)
 		return flt(total[0][0]) if total else 0
+
+	@staticmethod
+	def recalculate_all_swastik_totals():
+		"""Recalculate total_reserved_for_swastik for ALL submitted reservations. Called via hooks."""
+		total = frappe.db.sql(
+			"""
+			SELECT COALESCE(SUM(reserved_qty), 0)
+			FROM `tabStock Reservation`
+			WHERE docstatus = 1 AND status = 'Reserved'
+			""",
+			as_dict=False,
+		)
+		total_val = flt(total[0][0]) if total else 0
+		frappe.db.sql(
+			"UPDATE `tabStock Reservation` SET total_reserved_for_swastik = %s WHERE docstatus = 1 AND status = 'Reserved'",
+			(total_val,),
+		)
+		frappe.db.commit()
+
+
+def recalculate_on_change(doc, method):
+	"""doc_events hook: recalculate swastik totals when any Stock Reservation is submitted/cancelled."""
+	StockReservation.recalculate_all_swastik_totals()
