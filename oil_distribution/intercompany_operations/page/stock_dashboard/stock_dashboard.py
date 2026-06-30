@@ -9,7 +9,8 @@ def get_swastik_total():
     # Total from Bins
     total_result = frappe.db.sql(
         """
-        SELECT COALESCE(SUM(b.actual_qty), 0) as total_reserved
+        SELECT COALESCE(SUM(b.actual_qty), 0) as total_reserved,
+               COALESCE(SUM(b.stock_value), 0) as total_value
         FROM `tabBin` b
         JOIN `tabWarehouse` w ON w.name = b.warehouse
         WHERE w.name LIKE 'Reserved WH - %%'
@@ -18,13 +19,15 @@ def get_swastik_total():
         as_dict=True,
     )
     total_reserved = flt(total_result[0].total_reserved) if total_result else 0
+    total_value = flt(total_result[0].total_value) if total_result else 0
 
     # Per-company breakdown from Bins
     company_data = frappe.db.sql(
         """
         SELECT
             w.company,
-            COALESCE(SUM(b.actual_qty), 0) as total_reserved
+            COALESCE(SUM(b.actual_qty), 0) as total_reserved,
+            COALESCE(SUM(b.stock_value), 0) as total_value
         FROM `tabBin` b
         JOIN `tabWarehouse` w ON w.name = b.warehouse
         WHERE w.name LIKE 'Reserved WH - %%'
@@ -40,7 +43,8 @@ def get_swastik_total():
         """
         SELECT
             b.item_code as item,
-            COALESCE(SUM(b.actual_qty), 0) as total_reserved
+            COALESCE(SUM(b.actual_qty), 0) as total_reserved,
+            COALESCE(SUM(b.stock_value), 0) as total_value
         FROM `tabBin` b
         JOIN `tabWarehouse` w ON w.name = b.warehouse
         WHERE w.name LIKE 'Reserved WH - %%'
@@ -58,7 +62,8 @@ def get_swastik_total():
             w.company,
             b.item_code,
             b.warehouse,
-            b.actual_qty as qty
+            b.actual_qty as qty,
+            b.stock_value as value
         FROM `tabBin` b
         JOIN `tabWarehouse` w ON w.name = b.warehouse
         WHERE w.name LIKE 'Reserved WH - %%'
@@ -70,6 +75,7 @@ def get_swastik_total():
 
     return {
         "total_reserved": total_reserved,
+        "total_value": total_value,
         "companies_count": len(company_data),
         "items_count": len(item_data),
         "by_company": company_data,

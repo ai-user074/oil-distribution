@@ -76,21 +76,21 @@ class StockDashboard {
 		let company_badges = '';
 		if (data.by_company && data.by_company.length) {
 			company_badges = data.by_company.map(c =>
-				`<span class="badge badge-secondary ml-1">${c.company}: ${format_number(c.total_reserved)}</span>`
+				`<span class="badge badge-secondary ml-1">${c.company}: ${format_number(c.total_reserved)} | ${format_currency(c.total_value)}</span>`
 			).join('');
 		}
 
 		let item_badges = '';
 		if (data.by_item && data.by_item.length) {
 			item_badges = data.by_item.map(i =>
-				`<span class="badge badge-light ml-1">${i.item}: ${format_number(i.total_reserved)}</span>`
+				`<span class="badge badge-light ml-1">${i.item}: ${format_number(i.total_reserved)} | ${format_currency(i.total_value)}</span>`
 			).join('');
 		}
 
 		let detail_rows = '';
 		if (data.detail && data.detail.length) {
 			detail_rows = data.detail.map(d =>
-				`<tr><td>${d.company}</td><td>${d.item_code}</td><td style="font-size:11px">${d.warehouse}</td><td class="text-right"><strong>${format_number(d.qty)}</strong></td></tr>`
+				`<tr><td>${d.company}</td><td>${d.item_code}</td><td style="font-size:11px">${d.warehouse}</td><td class="text-right"><strong>${format_number(d.qty)}</strong></td><td class="text-right">${format_currency(d.value)}</td></tr>`
 			).join('');
 		}
 
@@ -102,7 +102,7 @@ class StockDashboard {
 							<div class="col-md-3 text-center">
 								<div class="text-muted mb-1" style="font-size: 12px;">Reserved for Swastik (Total)</div>
 								<h2 class="mt-0 mb-0" style="color: var(--primary);">${format_number(data.total_reserved)}</h2>
-								<div class="text-muted" style="font-size: 11px;">All Reserved Warehouses</div>
+								<div class="text-muted" style="font-size: 11px;">Value: ${format_currency(data.total_value)}</div>
 							</div>
 							<div class="col-md-3 text-center">
 								<div class="text-muted mb-1" style="font-size: 12px;">Companies</div>
@@ -122,7 +122,7 @@ class StockDashboard {
 						<div class="mt-3">
 							<table class="table table-bordered table-sm mb-0" style="font-size: 12px;">
 								<thead class="thead-light"><tr>
-									<th>Company</th><th>Item</th><th>Warehouse</th><th class="text-right">Qty</th>
+									<th>Company</th><th>Item</th><th>Warehouse</th><th class="text-right">Qty</th><th class="text-right">Value</th>
 								</tr></thead>
 								<tbody>${detail_rows}</tbody>
 							</table>
