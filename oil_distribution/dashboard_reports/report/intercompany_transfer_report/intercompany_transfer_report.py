@@ -1,4 +1,6 @@
 import frappe
+from frappe.utils import flt
+from collections import defaultdict
 
 
 def execute(filters=None):
@@ -48,4 +50,44 @@ def execute(filters=None):
 		{"label": "Amount", "fieldname": "grand_total", "fieldtype": "Currency", "width": 120},
 	]
 
-	return columns, data
+	# Chart: Transfer value by company pair (bar)
+	company_pair_totals = defaultdict(float)
+	for row in data:
+		key = f"{row.from_company} -> {row.to_company}"
+		company_pair_totals[key] += flt(row.grand_total)
+
+	chart = None
+	if company_pair_totals:
+		chart = {
+			"data": {
+				"labels": list(company_pair_totals.keys()),
+				"datasets": [{"name": "Transfer Value", "values": list(company_pair_totals.values())}],
+			},
+			"type": "bar",
+		}
+
+	# Pie chart for status distribution
+	status_counts = defaultdict(int)
+	for row in data:
+		status_counts[row.status or "Draft"] += 1
+
+	pie_chart = None
+	if status_counts:
+		pie_chart = {
+			"data": {
+				"labels": list(status_counts.keys()),
+				"datasets": [{"name": "Transfers", "values": list(status_counts.values())}],
+			},
+			"type": "pie",
+		}
+
+	# Report summary
+	total_transfers = len(data)
+	total_value = sum(flt(r.grand_total) for r in data)
+
+	report_summary = [
+		{"label": "Total Transfers", "value": total_transfers, "indicator": "blue"},
+		{"label": "Total Value", "value": frappe.utils.fmt_money(total_value), "indicator": "green"},
+	]
+
+	return columns, data, None, chart, report_summary

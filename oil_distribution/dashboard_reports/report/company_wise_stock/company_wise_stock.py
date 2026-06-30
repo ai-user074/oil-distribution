@@ -1,5 +1,6 @@
 import frappe
 from frappe.utils import flt
+from collections import defaultdict
 
 
 def execute(filters=None):
@@ -42,4 +43,45 @@ def execute(filters=None):
 		as_dict=True,
 	)
 
-	return columns, data
+	# Chart: Stock value by company (bar)
+	company_values = defaultdict(float)
+	company_qty = defaultdict(float)
+	for row in data:
+		company_values[row.company] += flt(row.stock_value)
+		company_qty[row.company] += flt(row.qty)
+
+	chart = None
+	if company_values:
+		chart = {
+			"data": {
+				"labels": list(company_values.keys()),
+				"datasets": [
+					{"name": "Stock Qty", "values": list(company_qty.values())},
+				],
+			},
+			"type": "bar",
+		}
+
+	# Pie chart for stock value by company
+	pie_chart = None
+	if company_values:
+		pie_chart = {
+			"data": {
+				"labels": list(company_values.keys()),
+				"datasets": [{"name": "Stock Value", "values": list(company_values.values())}],
+			},
+			"type": "pie",
+		}
+
+	# Report summary
+	total_qty = sum(flt(r.qty) for r in data)
+	total_value = sum(flt(r.stock_value) for r in data)
+	total_items = len(set(r.item_code for r in data))
+
+	report_summary = [
+		{"label": "Total Qty", "value": total_qty, "indicator": "blue"},
+		{"label": "Total Value", "value": frappe.utils.fmt_money(total_value), "indicator": "green"},
+		{"label": "Unique Items", "value": total_items, "indicator": "orange"},
+	]
+
+	return columns, data, None, chart, report_summary

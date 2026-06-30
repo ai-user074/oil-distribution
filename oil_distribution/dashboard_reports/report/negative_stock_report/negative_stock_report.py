@@ -1,5 +1,6 @@
 import frappe
 from frappe.utils import flt
+from collections import defaultdict
 
 
 def execute(filters=None):
@@ -42,4 +43,30 @@ def execute(filters=None):
 		as_dict=True,
 	)
 
-	return columns, data
+	# Chart: Negative stock by company (bar)
+	company_neg = defaultdict(float)
+	for row in data:
+		company_neg[row.company] += abs(flt(row.stock_value))
+
+	chart = None
+	if company_neg:
+		chart = {
+			"data": {
+				"labels": list(company_neg.keys()),
+				"datasets": [{"name": "Negative Stock Value", "values": list(company_neg.values())}],
+			},
+			"type": "bar",
+		}
+
+	# Report summary
+	total_items = len(data)
+	total_neg_qty = sum(abs(flt(r.qty)) for r in data)
+	total_neg_value = sum(abs(flt(r.stock_value)) for r in data)
+
+	report_summary = [
+		{"label": "Negative Items", "value": total_items, "indicator": "red" if total_items > 0 else "green"},
+		{"label": "Total Negative Qty", "value": total_neg_qty, "indicator": "red" if total_neg_qty > 0 else "green"},
+		{"label": "Total Negative Value", "value": frappe.utils.fmt_money(total_neg_value), "indicator": "red" if total_neg_value > 0 else "green"},
+	]
+
+	return columns, data, None, chart, report_summary

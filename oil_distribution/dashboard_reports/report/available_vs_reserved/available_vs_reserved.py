@@ -1,5 +1,6 @@
 import frappe
 from frappe.utils import flt
+from collections import defaultdict
 
 
 def execute(filters=None):
@@ -48,4 +49,34 @@ def execute(filters=None):
 		as_dict=True,
 	)
 
-	return columns, data
+	# Chart: Available vs Reserved by company (bar, grouped)
+	company_data = defaultdict(lambda: {"available": 0, "reserved": 0})
+	for row in data:
+		company_data[row.company]["available"] += flt(row.available_qty)
+		company_data[row.company]["reserved"] += flt(row.reserved_qty)
+
+	chart = None
+	if company_data:
+		chart = {
+			"data": {
+				"labels": list(company_data.keys()),
+				"datasets": [
+					{"name": "Available", "values": [v["available"] for v in company_data.values()]},
+					{"name": "Reserved", "values": [v["reserved"] for v in company_data.values()]},
+				],
+			},
+			"type": "bar",
+		}
+
+	# Report summary
+	total_available = sum(flt(r.available_qty) for r in data)
+	total_reserved = sum(flt(r.reserved_qty) for r in data)
+	total_net = sum(flt(r.net_available) for r in data)
+
+	report_summary = [
+		{"label": "Total Available", "value": total_available, "indicator": "green"},
+		{"label": "Total Reserved", "value": total_reserved, "indicator": "orange"},
+		{"label": "Net Available", "value": total_net, "indicator": "blue"},
+	]
+
+	return columns, data, None, chart, report_summary
