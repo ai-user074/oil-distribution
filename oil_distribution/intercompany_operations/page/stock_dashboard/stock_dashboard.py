@@ -4,60 +4,77 @@ from frappe.utils import flt
 
 @frappe.whitelist()
 def get_swastik_total():
-    """Get total reserved quantity across all companies for all items (Swastik tracking)."""
-    result = frappe.db.sql(
+    """Get total reserved stock from all Reserved Warehouses (actual Bin stock).
+    Captures ALL material moved to Reserved WHs - via Stock Reservation AND manual transfers."""
+    # Total from Bins
+    total_result = frappe.db.sql(
         """
-        SELECT
-            COALESCE(SUM(reserved_qty), 0) as total_reserved,
-            COUNT(*) as total_reservations,
-            COUNT(DISTINCT company) as companies_count,
-            COUNT(DISTINCT item) as items_count
-        FROM `tabStock Reservation`
-        WHERE docstatus = 1 AND status = 'Reserved'
+        SELECT COALESCE(SUM(b.actual_qty), 0) as total_reserved
+        FROM `tabBin` b
+        JOIN `tabWarehouse` w ON w.name = b.warehouse
+        WHERE w.name LIKE 'Reserved WH - %%'
+        AND b.actual_qty > 0
         """,
         as_dict=True,
     )
-    data = result[0] if result else {"total_reserved": 0, "total_reservations": 0, "companies_count": 0, "items_count": 0}
+    total_reserved = flt(total_result[0].total_reserved) if total_result else 0
 
-    # Per-company breakdown
+    # Per-company breakdown from Bins
     company_data = frappe.db.sql(
         """
         SELECT
-            company,
-            COALESCE(SUM(reserved_qty), 0) as total_reserved,
-            COUNT(*) as reservations,
-            COUNT(DISTINCT item) as items
-        FROM `tabStock Reservation`
-        WHERE docstatus = 1 AND status = 'Reserved'
-        GROUP BY company
+            w.company,
+            COALESCE(SUM(b.actual_qty), 0) as total_reserved
+        FROM `tabBin` b
+        JOIN `tabWarehouse` w ON w.name = b.warehouse
+        WHERE w.name LIKE 'Reserved WH - %%'
+        AND b.actual_qty > 0
+        GROUP BY w.company
         ORDER BY total_reserved DESC
         """,
         as_dict=True,
     )
 
-    # Per-item breakdown
+    # Per-item breakdown from Bins
     item_data = frappe.db.sql(
         """
         SELECT
-            item,
-            COALESCE(SUM(reserved_qty), 0) as total_reserved,
-            COUNT(*) as reservations,
-            COUNT(DISTINCT company) as companies
-        FROM `tabStock Reservation`
-        WHERE docstatus = 1 AND status = 'Reserved'
-        GROUP BY item
+            b.item_code as item,
+            COALESCE(SUM(b.actual_qty), 0) as total_reserved
+        FROM `tabBin` b
+        JOIN `tabWarehouse` w ON w.name = b.warehouse
+        WHERE w.name LIKE 'Reserved WH - %%'
+        AND b.actual_qty > 0
+        GROUP BY b.item_code
         ORDER BY total_reserved DESC
+        """,
+        as_dict=True,
+    )
+
+    # Per-company per-item detail
+    detail_data = frappe.db.sql(
+        """
+        SELECT
+            w.company,
+            b.item_code,
+            b.warehouse,
+            b.actual_qty as qty
+        FROM `tabBin` b
+        JOIN `tabWarehouse` w ON w.name = b.warehouse
+        WHERE w.name LIKE 'Reserved WH - %%'
+        AND b.actual_qty > 0
+        ORDER BY w.company, b.item_code
         """,
         as_dict=True,
     )
 
     return {
-        "total_reserved": flt(data.total_reserved),
-        "total_reservations": data.total_reservations,
-        "companies_count": data.companies_count,
-        "items_count": data.items_count,
+        "total_reserved": total_reserved,
+        "companies_count": len(company_data),
+        "items_count": len(item_data),
         "by_company": company_data,
         "by_item": item_data,
+        "detail": detail_data,
     }
 
 

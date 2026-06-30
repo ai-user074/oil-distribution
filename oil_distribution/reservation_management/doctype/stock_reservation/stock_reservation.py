@@ -147,33 +147,30 @@ class StockReservation(frappe.model.document.Document):
 
 	@frappe.whitelist()
 	def get_swastik_total_reserved(self):
-		"""Get total reserved quantity across all companies for all items."""
-		exclude = ""
-		params = []
-		if self.name:
-			exclude = "AND name != %s"
-			params.append(self.name)
-
+		"""Get total reserved stock from all Reserved Warehouses (actual Bin stock)."""
 		total = frappe.db.sql(
 			"""
-			SELECT COALESCE(SUM(reserved_qty), 0)
-			FROM `tabStock Reservation`
-			WHERE docstatus = 1 AND status = 'Reserved'
-			{}
-			""".format(exclude),
-			params,
+			SELECT COALESCE(SUM(b.actual_qty), 0)
+			FROM `tabBin` b
+			JOIN `tabWarehouse` w ON w.name = b.warehouse
+			WHERE w.name LIKE 'Reserved WH - %%'
+			AND b.actual_qty > 0
+			""",
 			as_dict=False,
 		)
 		return flt(total[0][0]) if total else 0
 
 	@staticmethod
 	def recalculate_all_swastik_totals():
-		"""Recalculate total_reserved_for_swastik for ALL submitted reservations. Called via hooks."""
+		"""Recalculate total_reserved_for_swastik from actual Bin stock in Reserved Warehouses.
+		Counts ALL stock (manual transfers + reservation transfers)."""
 		total = frappe.db.sql(
 			"""
-			SELECT COALESCE(SUM(reserved_qty), 0)
-			FROM `tabStock Reservation`
-			WHERE docstatus = 1 AND status = 'Reserved'
+			SELECT COALESCE(SUM(b.actual_qty), 0)
+			FROM `tabBin` b
+			JOIN `tabWarehouse` w ON w.name = b.warehouse
+			WHERE w.name LIKE 'Reserved WH - %%'
+			AND b.actual_qty > 0
 			""",
 			as_dict=False,
 		)

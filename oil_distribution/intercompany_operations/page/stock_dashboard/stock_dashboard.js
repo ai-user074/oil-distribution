@@ -87,6 +87,13 @@ class StockDashboard {
 			).join('');
 		}
 
+		let detail_rows = '';
+		if (data.detail && data.detail.length) {
+			detail_rows = data.detail.map(d =>
+				`<tr><td>${d.company}</td><td>${d.item_code}</td><td style="font-size:11px">${d.warehouse}</td><td class="text-right"><strong>${format_number(d.qty)}</strong></td></tr>`
+			).join('');
+		}
+
 		$('#swastik-reserved-card').html(`
 			<div class="col-md-12">
 				<div class="frappe-card" style="border-left: 4px solid var(--primary);">
@@ -95,7 +102,7 @@ class StockDashboard {
 							<div class="col-md-3 text-center">
 								<div class="text-muted mb-1" style="font-size: 12px;">Reserved for Swastik (Total)</div>
 								<h2 class="mt-0 mb-0" style="color: var(--primary);">${format_number(data.total_reserved)}</h2>
-								<div class="text-muted" style="font-size: 11px;">${data.total_reservations} reservations</div>
+								<div class="text-muted" style="font-size: 11px;">All Reserved Warehouses</div>
 							</div>
 							<div class="col-md-3 text-center">
 								<div class="text-muted mb-1" style="font-size: 12px;">Companies</div>
@@ -111,6 +118,15 @@ class StockDashboard {
 								<div class="mt-1" style="font-size: 11px;"><strong>By Item:</strong> ${item_badges || '<span class="text-muted">None</span>'}</div>
 							</div>
 						</div>
+						${detail_rows ? `
+						<div class="mt-3">
+							<table class="table table-bordered table-sm mb-0" style="font-size: 12px;">
+								<thead class="thead-light"><tr>
+									<th>Company</th><th>Item</th><th>Warehouse</th><th class="text-right">Qty</th>
+								</tr></thead>
+								<tbody>${detail_rows}</tbody>
+							</table>
+						</div>` : ''}
 					</div>
 				</div>
 			</div>
