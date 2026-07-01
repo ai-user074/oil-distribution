@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, nowdate
 
 from erpnext.controllers.stock_controller import StockController
 
@@ -56,8 +56,10 @@ class InterCompanyTransfer(StockController):
 		self.db_set("status", "Cancelled")
 
 	def cancel_generated_documents(self):
-		# Cancel in reverse order: PR -> DN -> PO -> SO
-		cancel_order = ["Purchase Receipt", "Delivery Note", "Purchase Order", "Sales Order"]
+		cancel_order = [
+			"Payment Entry", "Purchase Receipt", "Delivery Note",
+			"Purchase Order", "Sales Order",
+		]
 		for doctype in cancel_order:
 			for row in self.generated_documents:
 				if row.document_type == doctype and row.document_name and row.docstatus == 1:
@@ -90,15 +92,20 @@ class InterCompanyTransfer(StockController):
 		so = self.create_sales_order()
 		so_name = so.name
 
-		# Step 2: Create Purchase Order from SO (for buying company)
+		# Step 2: Create Purchase Order from SO
 		po = self.create_purchase_order_from_so(so_name)
+		po_name = po.name
 
-		# Step 3: Create Delivery Note from SO (submit immediately)
+		# Step 3: Create Delivery Note from SO
 		dn = self.create_delivery_note_from_so(so_name)
 		dn_name = dn.name
 
-		# Step 4: Create Purchase Receipt from DN (submit immediately)
-		pr = self.create_purchase_receipt_from_dn(dn_name)
+		# Step 4: Create Purchase Receipt from DN, linked to PO
+		pr = self.create_purchase_receipt_from_dn(dn_name, po_name)
+		pr_name = pr.name
+
+		# Step 5: Create Payment Entries for both companies
+		self.create_payment_entries(so_name, po_name)
 
 		self.status = "Transfer Created"
 		self.flags.ignore_permissions = True
@@ -201,8 +208,8 @@ class InterCompanyTransfer(StockController):
 		self.append_generated_doc("Delivery Note", dn.name, dn.company, dn.docstatus, dn.posting_date, dn.grand_total)
 		return dn
 
-	def create_purchase_receipt_from_dn(self, dn_name):
-		"""Create Purchase Receipt from Delivery Note and submit it."""
+	def create_purchase_receipt_from_dn(self, dn_name, po_name):
+		"""Create Purchase Receipt from Delivery Note, linked to Purchase Order."""
 		from erpnext.stock.doctype.delivery_note.delivery_note import make_inter_company_purchase_receipt
 
 		pr = make_inter_company_purchase_receipt(dn_name)
@@ -215,6 +222,8 @@ class InterCompanyTransfer(StockController):
 					if transfer_item.batch_no:
 						item.batch_no = transfer_item.batch_no
 					break
+			# Link PR item to PO so received_qty updates
+			item.purchase_order = po_name
 
 		pr.flags.ignore_inter_company_validation = 1
 		pr.flags.ignore_permissions = True
@@ -224,6 +233,72 @@ class InterCompanyTransfer(StockController):
 
 		self.append_generated_doc("Purchase Receipt", pr.name, pr.company, pr.docstatus, pr.posting_date, pr.grand_total)
 		return pr
+
+	def create_payment_entries(self, so_name, po_name):
+		"""Create Payment Entry for seller (against SO) and buyer (against PO)."""
+		# Payment 1: Buyer (to_company) pays to Seller (from_company)
+		self.create_payment_entry(
+			company=self.to_company,
+			party_type="Supplier",
+			party=self.get_internal_supplier(self.company),
+			payment_type="Pay",
+			reference_doctype="Purchase Order",
+			reference_name=po_name,
+		)
+
+		# Payment 2: Seller (from_company) receives from Buyer (to_company)
+		self.create_payment_entry(
+			company=self.company,
+			party_type="Customer",
+			party=self.get_internal_customer(self.to_company),
+			payment_type="Receive",
+			reference_doctype="Sales Order",
+			reference_name=so_name,
+		)
+
+	def create_payment_entry(self, company, party_type, party, payment_type, reference_doctype, reference_name):
+		"""Create a single Payment Entry."""
+		pe = frappe.new_doc("Payment Entry")
+		pe.company = company
+		pe.payment_type = payment_type
+		pe.party_type = party_type
+		pe.party = party
+		pe.posting_date = self.posting_date
+		pe.mode_of_payment = frappe.db.get_value("Mode of Payment", {"type": "Bank"}, "name") or "Bank Transfer"
+		pe.paid_amount = self.grand_total
+		pe.received_amount = self.grand_total
+		pe.source_exchange_rate = 1
+		pe.target_exchange_rate = 1
+		pe.reference_no = self.name
+		pe.reference_date = self.posting_date
+
+		# Set bank/cash accounts
+		default_bank = frappe.db.get_value("Company", company, "default_bank_account")
+		default_receivable = frappe.db.get_value("Company", company, "default_receivable_account")
+		default_payable = frappe.db.get_value("Company", company, "default_payable_account")
+
+		if payment_type == "Pay":
+			pe.paid_from = default_receivable or default_payable
+			pe.paid_to = default_bank
+		else:
+			pe.paid_from = default_bank
+			pe.paid_to = default_receivable or default_payable
+
+		pe.append("references", {
+			"reference_doctype": reference_doctype,
+			"reference_name": reference_name,
+			"total_amount": self.grand_total,
+			"outstanding_amount": self.grand_total,
+			"allocated_amount": self.grand_total,
+		})
+
+		pe.flags.ignore_permissions = True
+		pe.flags.ignore_links = True
+		pe.save(ignore_permissions=True)
+		pe.submit()
+
+		self.append_generated_doc("Payment Entry", pe.name, pe.company, pe.docstatus, self.posting_date, pe.paid_amount)
+		return pe
 
 	def append_generated_doc(self, doctype, name, company, docstatus, posting_date=None, grand_total=0):
 		status_map = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
@@ -238,13 +313,11 @@ class InterCompanyTransfer(StockController):
 		})
 
 	def apply_tax_template(self, doc, template_name, company):
-		"""Apply tax template - find matching template for the document's company."""
 		if doc.doctype == "Sales Order":
 			tax_doctype = "Sales Taxes and Charges Template"
 		else:
 			tax_doctype = "Purchase Taxes and Charges Template"
 
-		# Try to find a template that belongs to this company
 		template = frappe.db.get_value(tax_doctype, {"company": company}, "name")
 		if not template:
 			template = template_name
