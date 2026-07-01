@@ -257,7 +257,7 @@ class InterCompanyTransfer(StockController):
 		)
 
 	def create_payment_entry(self, company, party_type, party, payment_type, reference_doctype, reference_name):
-		"""Create a single Payment Entry."""
+		"""Create a single Payment Entry using bank accounts (no receivable/payable)."""
 		pe = frappe.new_doc("Payment Entry")
 		pe.company = company
 		pe.payment_type = payment_type
@@ -272,17 +272,14 @@ class InterCompanyTransfer(StockController):
 		pe.reference_no = self.name
 		pe.reference_date = self.posting_date
 
-		# Set bank/cash accounts
+		# Use bank accounts for both sides (avoids receivable/payable party validation)
 		default_bank = frappe.db.get_value("Company", company, "default_bank_account")
-		default_receivable = frappe.db.get_value("Company", company, "default_receivable_account")
-		default_payable = frappe.db.get_value("Company", company, "default_payable_account")
+		if not default_bank:
+			frappe.throw(_("No default Bank Account set for company {0}").format(company))
 
-		if payment_type == "Pay":
-			pe.paid_from = default_receivable or default_payable
-			pe.paid_to = default_bank
-		else:
-			pe.paid_from = default_bank
-			pe.paid_to = default_receivable or default_payable
+		# Both paid_from and paid_to use bank accounts for internal transfers
+		pe.paid_from = default_bank
+		pe.paid_to = default_bank
 
 		pe.append("references", {
 			"reference_doctype": reference_doctype,
