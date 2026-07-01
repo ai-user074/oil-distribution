@@ -14,6 +14,9 @@ class InterCompanyTransfer(StockController):
         if self.company == self.to_company:
             frappe.throw(_("From Company and To Company cannot be the same"))
 
+        if not self.transaction_type:
+            self.transaction_type = "Inter Company Stock Transfer"
+
         for item in self.items:
             item.from_warehouse = item.source_warehouse
             item.to_warehouse = item.target_warehouse
@@ -36,7 +39,47 @@ class InterCompanyTransfer(StockController):
         self.validate_values()
         if not self.items:
             frappe.throw(_("Please add at least one item in the transfer"))
+        self.validate_company_accounts()
+        self.validate_warehouses()
+        self.validate_parties()
         self.status = "Submitted"
+
+    def validate_company_accounts(self):
+        """Ensure all required default accounts exist for both companies."""
+        for company in [self.company, self.to_company]:
+            abbr = frappe.db.get_value("Company", company, "abbr")
+            missing = []
+            if not frappe.db.get_value("Company", company, "default_bank_account"):
+                missing.append("default Bank Account")
+            if not frappe.db.get_value("Company", company, "default_receivable_account"):
+                missing.append("default Receivable Account")
+            if not frappe.db.get_value("Company", company, "default_payable_account"):
+                missing.append("default Payable Account")
+            if not frappe.db.get_value("Company", company, "unrealized_profit_loss_account"):
+                missing.append("Unrealized Profit Loss Account")
+            if missing:
+                frappe.throw(_("{0} is missing: {1}").format(
+                    company, ", ".join(missing)))
+
+    def validate_warehouses(self):
+        """Ensure warehouses belong to the correct companies."""
+        for item in self.items:
+            wh_company = frappe.db.get_value("Warehouse", item.source_warehouse, "company")
+            if wh_company != self.company:
+                frappe.throw(_("Warehouse {0} belongs to {1}, not {2}").format(
+                    item.source_warehouse, wh_company, self.company))
+
+            wh_company = frappe.db.get_value("Warehouse", item.target_warehouse, "company")
+            if wh_company != self.to_company:
+                frappe.throw(_("Warehouse {0} belongs to {1}, not {2}").format(
+                    item.target_warehouse, wh_company, self.to_company))
+
+    def validate_parties(self):
+        """Ensure internal customer and supplier exist for both companies."""
+        self.get_internal_customer(self.to_company)
+        self.get_internal_supplier(self.company)
+        self.get_internal_customer(self.company)
+        self.get_internal_supplier(self.to_company)
 
     def on_submit(self):
         try:
@@ -56,7 +99,6 @@ class InterCompanyTransfer(StockController):
         self.db_set("status", "Cancelled")
 
     def cancel_generated_documents(self):
-        # Cancel in reverse order: PE → PI → SI → PR → DN → PO → SO
         cancel_order = [
             "Payment Entry", "Purchase Invoice", "Sales Invoice",
             "Purchase Receipt", "Delivery Note",
@@ -91,31 +133,24 @@ class InterCompanyTransfer(StockController):
 
         self.clear_linked_docs()
 
-        # Step 1: Create Sales Order (source/seller company)
         so = self.create_sales_order()
         so_name = so.name
 
-        # Step 2: Create Purchase Order from SO (target/buyer company)
         po = self.create_purchase_order_from_so(so_name)
         po_name = po.name
 
-        # Step 3: Create Delivery Note from SO (seller ships)
         dn = self.create_delivery_note_from_so(so_name)
         dn_name = dn.name
 
-        # Step 4: Create Purchase Receipt from DN linked to PO (buyer receives stock)
         pr = self.create_purchase_receipt_from_dn(dn_name, po_name)
         pr_name = pr.name
 
-        # Step 5: Create Sales Invoice from SO (seller bills)
         si = self.create_sales_invoice_from_so(so_name)
         si_name = si.name
 
-        # Step 6: Create Purchase Invoice from SI (buyer records liability)
         pi = self.create_purchase_invoice_from_si(si_name)
         pi_name = pi.name
 
-        # Step 7: Create Payment Entries (buyer pays, seller receives)
         self.create_payment_entries(si_name, pi_name)
 
         self.status = "Transfer Created"
@@ -128,7 +163,6 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 1: Sales Order ───────────────────────────────────────────────────
     def create_sales_order(self):
-        """Create a Sales Order from the source company (seller) to the destination company (buyer)."""
         customer = self.get_internal_customer(self.to_company)
 
         so = frappe.new_doc("Sales Order")
@@ -164,7 +198,6 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 2: Purchase Order ────────────────────────────────────────────────
     def create_purchase_order_from_so(self, so_name):
-        """Create Purchase Order for the buying company using ERPNext's inter-company API."""
         from erpnext.selling.doctype.sales_order.sales_order import make_inter_company_purchase_order
 
         po = make_inter_company_purchase_order(so_name)
@@ -198,7 +231,6 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 3: Delivery Note ─────────────────────────────────────────────────
     def create_delivery_note_from_so(self, so_name):
-        """Create Delivery Note from Sales Order and submit it."""
         from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
 
         dn = make_delivery_note(so_name)
@@ -224,13 +256,11 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 4: Purchase Receipt ──────────────────────────────────────────────
     def create_purchase_receipt_from_dn(self, dn_name, po_name):
-        """Create Purchase Receipt from Delivery Note, linked to Purchase Order."""
         from erpnext.stock.doctype.delivery_note.delivery_note import make_inter_company_purchase_receipt
 
         pr = make_inter_company_purchase_receipt(dn_name)
         pr.company = self.to_company
 
-        # Build PO item lookup: item_code -> po item row name
         po_doc = frappe.get_doc("Purchase Order", po_name)
         po_item_map = {d.item_code: d.name for d in po_doc.items}
 
@@ -241,7 +271,6 @@ class InterCompanyTransfer(StockController):
                     if transfer_item.batch_no:
                         item.batch_no = transfer_item.batch_no
                     break
-            # Link PR item to PO item row so received_qty updates
             item.purchase_order = po_name
             if item.item_code in po_item_map:
                 item.purchase_order_item = po_item_map[item.item_code]
@@ -257,7 +286,6 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 5: Sales Invoice ─────────────────────────────────────────────────
     def create_sales_invoice_from_so(self, so_name):
-        """Create Sales Invoice from Sales Order (seller bills the buyer)."""
         from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 
         si = make_sales_invoice(so_name)
@@ -283,7 +311,6 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 6: Purchase Invoice ──────────────────────────────────────────────
     def create_purchase_invoice_from_si(self, si_name):
-        """Create Purchase Invoice from Sales Invoice (buyer records the liability)."""
         from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_inter_company_purchase_invoice
 
         pi = make_inter_company_purchase_invoice(si_name)
@@ -308,8 +335,6 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 7: Payment Entries ───────────────────────────────────────────────
     def create_payment_entries(self, si_name, pi_name):
-        """Create Payment Entry for buyer (pays PI) and seller (receives against SI).
-        Skip if invoice is already fully paid (e.g. from a previous partial run)."""
         pi_outstanding = frappe.db.get_value("Purchase Invoice", pi_name, "outstanding_amount") or 0
         if flt(pi_outstanding) > 0:
             self.create_payment_entry(
@@ -320,8 +345,6 @@ class InterCompanyTransfer(StockController):
                 reference_doctype="Purchase Invoice",
                 reference_name=pi_name,
             )
-        else:
-            frappe.msgprint(_("Purchase Invoice {0} is already fully paid, skipping payment entry.").format(pi_name))
 
         si_outstanding = frappe.db.get_value("Sales Invoice", si_name, "outstanding_amount") or 0
         if flt(si_outstanding) > 0:
@@ -333,16 +356,8 @@ class InterCompanyTransfer(StockController):
                 reference_doctype="Sales Invoice",
                 reference_name=si_name,
             )
-        else:
-            frappe.msgprint(_("Sales Invoice {0} is already fully paid, skipping payment entry.").format(si_name))
 
     def create_payment_entry(self, company, party_type, party, payment_type, reference_doctype, reference_name):
-        """Create a single Payment Entry.
-
-        ERPNext validates: party_account must be Receivable/Payable.
-        - payment_type="Pay"  → party_account = paid_to  (must be Payable)
-        - payment_type="Receive" → party_account = paid_from (must be Receivable)
-        """
         pe = frappe.new_doc("Payment Entry")
         pe.company = company
         pe.payment_type = payment_type
@@ -362,12 +377,10 @@ class InterCompanyTransfer(StockController):
             frappe.throw(_("No default Bank Account set for company {0}").format(company))
 
         if payment_type == "Pay":
-            # party_account = paid_to → must be Payable
             default_payable = frappe.db.get_value("Company", company, "default_payable_account")
             pe.paid_from = default_bank
             pe.paid_to = default_payable
         else:
-            # party_account = paid_from → must be Receivable
             default_receivable = frappe.db.get_value("Company", company, "default_receivable_account")
             pe.paid_from = default_receivable
             pe.paid_to = default_bank
@@ -429,7 +442,8 @@ class InterCompanyTransfer(StockController):
             "name",
         )
         if not customer:
-            frappe.throw(_("No Internal Customer found representing company {0}").format(company))
+            frappe.throw(_("No Internal Customer found representing company {0}. "
+                "Please create an Internal Customer with 'Represents Company' = {0}").format(company))
         return customer
 
     def get_internal_supplier(self, company):
@@ -439,7 +453,8 @@ class InterCompanyTransfer(StockController):
             "name",
         )
         if not supplier:
-            frappe.throw(_("No Internal Supplier found representing company {0}").format(company))
+            frappe.throw(_("No Internal Supplier found representing company {0}. "
+                "Please create an Internal Supplier with 'Represents Company' = {0}").format(company))
         return supplier
 
     def get_transfer_rate(self, item_code):

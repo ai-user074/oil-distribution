@@ -1,15 +1,22 @@
 frappe.ui.form.on('Inter Company Transfer', {
 	refresh(frm) {
 		frm.trigger('set_warehouse_queries');
+
 		if (frm.doc.docstatus === 1 && frm.doc.status === 'Transfer Created') {
-			frm.add_custom_button(__('View Generated Documents'), function() {
+			frm.add_custom_button(__('View All Documents'), function() {
 				frm.trigger('show_generated_documents');
 			}, __('Actions'));
+			frm.page.set_indicator(__('Transfer Created'), 'green');
+		} else if (frm.doc.docstatus === 1 && frm.doc.status === 'Submitted') {
+			frm.page.set_indicator(__('Processing...'), 'orange');
+		} else if (frm.doc.docstatus === 0) {
+			frm.page.set_indicator(__('Draft'), 'gray');
 		}
 	},
 
 	company(frm) {
 		frm.trigger('set_warehouse_queries');
+		frm.trigger('set_defaults');
 		if (frm.doc.items) {
 			frm.doc.items.forEach(row => {
 				row.source_warehouse = '';
@@ -25,6 +32,15 @@ frappe.ui.form.on('Inter Company Transfer', {
 				row.target_warehouse = '';
 			});
 			frm.refresh_field('items');
+		}
+	},
+
+	set_defaults(frm) {
+		if (frm.doc.company && !frm.doc.transaction_type) {
+			frm.set_value('transaction_type', 'Inter Company Stock Transfer');
+		}
+		if (frm.doc.company && !frm.doc.posting_date) {
+			frm.set_value('posting_date', frappe.datetime.get_today());
 		}
 	},
 
@@ -57,13 +73,12 @@ frappe.ui.form.on('Inter Company Transfer', {
 			return;
 		}
 
-		let html = '<table class="table table-bordered"><thead><tr>';
-		html += '<th>#</th><th>Document Type</th><th>Document Name</th><th>Company</th><th>Posting Date</th><th>Grand Total</th><th>Status</th>';
-		html += '</tr></thead><tbody>';
+		let html = '<table class="table table-bordered" style="font-size:13px;">';
+		html += '<thead><tr><th>#</th><th>Document Type</th><th>Document Name</th><th>Company</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
 
 		let idx = 1;
 		frm.doc.generated_documents.forEach(function(row) {
-			let route = '/app/' + row.document_type.toLowerCase().replace(/ /g, '-') + '/' + row.document_name;
+			let route = '/desk/Form/' + row.document_type.replace(/ /g, '%20') + '/' + row.document_name;
 			html += '<tr>';
 			html += '<td>' + idx + '</td>';
 			html += '<td>' + row.document_type + '</td>';
