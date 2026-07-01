@@ -301,26 +301,33 @@ class InterCompanyTransfer(StockController):
 
     # ── Step 7: Payment Entries ───────────────────────────────────────────────
     def create_payment_entries(self, si_name, pi_name):
-        """Create Payment Entry for buyer (pays PI) and seller (receives against SI)."""
-        # Payment 1: Buyer pays against Purchase Invoice
-        self.create_payment_entry(
-            company=self.to_company,
-            party_type="Supplier",
-            party=self.get_internal_supplier(self.company),
-            payment_type="Pay",
-            reference_doctype="Purchase Invoice",
-            reference_name=pi_name,
-        )
+        """Create Payment Entry for buyer (pays PI) and seller (receives against SI).
+        Skip if invoice is already fully paid (e.g. from a previous partial run)."""
+        pi_outstanding = frappe.db.get_value("Purchase Invoice", pi_name, "outstanding_amount") or 0
+        if flt(pi_outstanding) > 0:
+            self.create_payment_entry(
+                company=self.to_company,
+                party_type="Supplier",
+                party=self.get_internal_supplier(self.company),
+                payment_type="Pay",
+                reference_doctype="Purchase Invoice",
+                reference_name=pi_name,
+            )
+        else:
+            frappe.msgprint(_("Purchase Invoice {0} is already fully paid, skipping payment entry.").format(pi_name))
 
-        # Payment 2: Seller receives against Sales Invoice
-        self.create_payment_entry(
-            company=self.company,
-            party_type="Customer",
-            party=self.get_internal_customer(self.to_company),
-            payment_type="Receive",
-            reference_doctype="Sales Invoice",
-            reference_name=si_name,
-        )
+        si_outstanding = frappe.db.get_value("Sales Invoice", si_name, "outstanding_amount") or 0
+        if flt(si_outstanding) > 0:
+            self.create_payment_entry(
+                company=self.company,
+                party_type="Customer",
+                party=self.get_internal_customer(self.to_company),
+                payment_type="Receive",
+                reference_doctype="Sales Invoice",
+                reference_name=si_name,
+            )
+        else:
+            frappe.msgprint(_("Sales Invoice {0} is already fully paid, skipping payment entry.").format(si_name))
 
     def create_payment_entry(self, company, party_type, party, payment_type, reference_doctype, reference_name):
         """Create a single Payment Entry.
