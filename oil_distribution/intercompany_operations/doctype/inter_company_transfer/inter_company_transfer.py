@@ -230,6 +230,10 @@ class InterCompanyTransfer(StockController):
         pr = make_inter_company_purchase_receipt(dn_name)
         pr.company = self.to_company
 
+        # Build PO item lookup: item_code -> po item row name
+        po_doc = frappe.get_doc("Purchase Order", po_name)
+        po_item_map = {d.item_code: d.name for d in po_doc.items}
+
         for item in pr.items:
             for transfer_item in self.items:
                 if transfer_item.item_code == item.item_code:
@@ -237,7 +241,10 @@ class InterCompanyTransfer(StockController):
                     if transfer_item.batch_no:
                         item.batch_no = transfer_item.batch_no
                     break
+            # Link PR item to PO item row so received_qty updates
             item.purchase_order = po_name
+            if item.item_code in po_item_map:
+                item.purchase_order_item = po_item_map[item.item_code]
 
         pr.flags.ignore_inter_company_validation = 1
         pr.flags.ignore_permissions = True
