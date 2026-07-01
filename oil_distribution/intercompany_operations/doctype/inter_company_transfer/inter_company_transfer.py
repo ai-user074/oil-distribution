@@ -257,14 +257,17 @@ class InterCompanyTransfer(StockController):
 		)
 
 	def create_payment_entry(self, company, party_type, party, payment_type, reference_doctype, reference_name):
-		"""Create a single Payment Entry using bank accounts (no receivable/payable)."""
+		"""Create a single Payment Entry.
+		Pay: paid_from=Payable (buyer, with party), paid_to=Bank (seller, no party)
+		Receive: paid_from=Bank (seller, no party), paid_to=Receivable (buyer, with party)
+		"""
 		pe = frappe.new_doc("Payment Entry")
 		pe.company = company
 		pe.payment_type = payment_type
 		pe.party_type = party_type
 		pe.party = party
 		pe.posting_date = self.posting_date
-		pe.mode_of_payment = frappe.db.get_value("Mode of Payment", {"type": "Bank"}, "name") or "Bank Transfer"
+		pe.mode_of_payment = frappe.db.get_value("Mode of Payment", {"type": "Bank"}, "name") or "Wire Transfer"
 		pe.paid_amount = self.grand_total
 		pe.received_amount = self.grand_total
 		pe.source_exchange_rate = 1
@@ -272,14 +275,20 @@ class InterCompanyTransfer(StockController):
 		pe.reference_no = self.name
 		pe.reference_date = self.posting_date
 
-		# Use bank accounts for both sides (avoids receivable/payable party validation)
 		default_bank = frappe.db.get_value("Company", company, "default_bank_account")
 		if not default_bank:
 			frappe.throw(_("No default Bank Account set for company {0}").format(company))
 
-		# Both paid_from and paid_to use bank accounts for internal transfers
-		pe.paid_from = default_bank
-		pe.paid_to = default_bank
+		if payment_type == "Pay":
+			# Buyer pays: from Payable (party required) to Bank (no party)
+			default_payable = frappe.db.get_value("Company", company, "default_payable_account")
+			pe.paid_from = default_payable
+			pe.paid_to = default_bank
+		else:
+			# Seller receives: from Bank (no party) to Receivable (party required)
+			default_receivable = frappe.db.get_value("Company", company, "default_receivable_account")
+			pe.paid_from = default_bank
+			pe.paid_to = default_receivable
 
 		pe.append("references", {
 			"reference_doctype": reference_doctype,
