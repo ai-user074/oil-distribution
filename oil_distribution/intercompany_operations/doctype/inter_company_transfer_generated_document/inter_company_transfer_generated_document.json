@@ -21,7 +21,7 @@
 			"fieldname": "document_type",
 			"fieldtype": "Select",
 			"label": "Document Type",
-			"options": "\nSales Order\nPurchase Order\nDelivery Note\nPurchase Receipt\nSales Invoice\nPurchase Invoice"
+			"options": "\nSales Order\nPurchase Order\nDelivery Note\nPurchase Receipt\nSales Invoice\nPurchase Invoice\nPayment Entry"
 		},
 		{
 			"allow_on_submit": 1,
