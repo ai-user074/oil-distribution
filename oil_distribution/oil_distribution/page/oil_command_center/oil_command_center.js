@@ -6,25 +6,32 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 	});
 
 	window.oz_company = 'All';
+	window.oz_item = 'All';
 
 	page.main.html(get_dashboard_html());
 
-	// Bind company selector via jQuery (more reliable than inline onchange)
+	// Bind company selector
 	page.main.find('#oz-company-select').on('change', function () {
-		var val = $(this).val();
-		console.log('[OIL CMD] select changed to:', val);
-		window.oz_company = val;
-		var tag = document.getElementById('oz-company-tag');
-		if (val === 'All') {
-			tag.textContent = 'All';
-			tag.style.background = '#eff6ff';
-			tag.style.color = '#3b82f6';
-		} else {
-			tag.textContent = val;
-			tag.style.background = '#ecfdf5';
-			tag.style.color = '#059669';
-		}
+		window.oz_company = $(this).val();
 		load_all_data();
+	});
+
+	// Bind item selector
+	page.main.find('#oz-item-select').on('change', function () {
+		window.oz_item = $(this).val();
+		load_all_data();
+	});
+
+	// Populate items dropdown
+	frappe.xcall('frappe.client.get_list', { doctype: 'Item', fields: ['item_code', 'item_name'], limit_page_length: 0, order_by: 'item_code asc' }).then(function (items) {
+		if (!items) return;
+		var sel = document.getElementById('oz-item-select');
+		items.forEach(function (item) {
+			var opt = document.createElement('option');
+			opt.value = item.item_code;
+			opt.textContent = item.item_code + ' — ' + item.item_name;
+			sel.appendChild(opt);
+		});
 	});
 
 	page.add_button(__("Refresh"), function () {
@@ -260,16 +267,20 @@ function get_dashboard_html() {
 
 	<div class="oz">
 
-		<!-- ═══ COMPANY SELECTOR ═══ -->
+		<!-- ═══ COMPANY & ITEM SELECTOR ═══ -->
 		<div class="oz-bar oz-anim" style="animation-delay:0.02s">
 			<label>Company</label>
-			<select id="oz-company-select">>
+			<select id="oz-company-select" style="padding:6px 28px 6px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#334155;font-size:12px;font-weight:600;cursor:pointer;appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 8px center;">
 				<option value="All" selected>All Companies</option>
 				<option value="Geeta Enterprise">Geeta Enterprise (GE)</option>
 				<option value="Global Export">Global Export (GEX)</option>
 				<option value="Shubham Enterprise">Shubham Enterprise (SHE)</option>
 			</select>
-			<span id="oz-company-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All</span>
+			<label style="margin-left:12px;">Item</label>
+			<select id="oz-item-select" style="padding:6px 28px 6px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#334155;font-size:12px;font-weight:600;cursor:pointer;appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 8px center;min-width:200px;">
+				<option value="All" selected>All Items</option>
+			</select>
+			<span id="oz-filter-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All</span>
 		</div>
 
 		<!-- ═══ KEY METRICS ═══ -->
@@ -567,14 +578,25 @@ function oz_ring(el, pct, c1, c2, sz) {
 
 function load_all_data() {
 	var co = window.oz_company;
-	console.log('[OIL CMD] company=' + co);
+	var item = window.oz_item;
+
+	// Update filter tag
+	var tag = document.getElementById('oz-filter-tag');
+	var parts = [];
+	if (co !== 'All') parts.push(co);
+	if (item !== 'All') parts.push(item);
+	if (parts.length === 0) { tag.textContent = 'All'; tag.style.background = '#eff6ff'; tag.style.color = '#3b82f6'; }
+	else { tag.textContent = parts.join(' · '); tag.style.background = '#ecfdf5'; tag.style.color = '#059669'; }
+
 	$('#oz-kpi-sales,#oz-kpi-proc,#oz-kpi-avail,#oz-kpi-reserved,#oz-kpi-neg,#oz-kpi-ict').text('--');
 	$('#oz-chart-trend,#oz-chart-donut,#oz-funnel-content,#oz-ring,#oz-mini-stats,#oz-table-res,#oz-table-ict,#oz-table-neg,#oz-activity,#oz-heatmap').html('<div style="text-align:center;padding:24px;color:#94a3b8;font-size:10px;">Loading...</div>');
+
+	var args = { company: co, item: item };
 
 	// KPIs
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_kpis',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message) return;
 			var d = r.message;
@@ -645,7 +667,7 @@ function load_all_data() {
 	// Trend
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_sales_procurement_trend',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message) return;
 			var d = r.message;
@@ -660,7 +682,7 @@ function load_all_data() {
 	// Donut
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_company_stock_distribution',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message) return;
 			var d = r.message;
@@ -673,7 +695,7 @@ function load_all_data() {
 	// Reservations
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_recent_reservations',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message || !r.message.length) { $('#oz-table-res').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No active reservations</div>'); return; }
 			var h = '<table class="oz-table"><thead><tr><th>ID</th><th>Company</th><th>Item</th><th>Qty</th><th>For</th><th>Status</th></tr></thead><tbody>';
@@ -694,7 +716,7 @@ function load_all_data() {
 	// ICTs
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_recent_icts',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message || !r.message.length) { $('#oz-table-ict').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No transfers yet</div>'); return; }
 			var h = '<table class="oz-table"><thead><tr><th>ID</th><th>From</th><th>To</th><th>Qty</th><th>Value</th><th>Date</th></tr></thead><tbody>';
@@ -715,7 +737,7 @@ function load_all_data() {
 	// Negative
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_negative_stock',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message || !r.message.length) { $('#oz-table-neg').html('<div style="text-align:center;padding:20px;color:#059669;font-size:10px;font-weight:600;">✓ All clear — no negative stock</div>'); return; }
 			var h = '<table class="oz-table"><thead><tr><th>Company</th><th>Warehouse</th><th>Item</th><th>Neg Qty</th><th>Value</th></tr></thead><tbody>';
@@ -735,7 +757,7 @@ function load_all_data() {
 	// Activity
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_recent_icts',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message || !r.message.length) { $('#oz-activity').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No recent activity</div>'); return; }
 			var h = '<div class="oz-tl">';
@@ -754,7 +776,7 @@ function load_all_data() {
 	// Heatmap
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_kpis',
-		args: { company: co },
+		args: args,
 		callback: function (r) {
 			if (!r.message) return;
 			var d = r.message;
