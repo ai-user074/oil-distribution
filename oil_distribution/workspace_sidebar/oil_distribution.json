@@ -1,0 +1,16 @@
+{
+ "app": "oil_distribution",
+ "creation": "2026-07-07 12:53:19.967782",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "oil-can",
+ "idx": 0,
+ "items": [],
+ "modified": "2026-07-07 12:53:19.967782",
+ "modified_by": "Administrator",
+ "module": "Oil Distribution",
+ "name": "Oil Distribution",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Oil Distribution"
+}

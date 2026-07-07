@@ -7,7 +7,7 @@ app_email = "dev@geeta.in"
 app_license = "MIT"
 source_link = "https://github.com/ai-user074/oil_distribution"
 app_logo_url = "/assets/oil_distribution/images/oil_distribution-logo.svg"
-app_home = "/app/oil-operations"
+app_home = "/app/oil-distribution"
 
 develop_version = "0.0.1"
 
