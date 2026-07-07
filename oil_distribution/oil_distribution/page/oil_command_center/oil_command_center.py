@@ -172,7 +172,9 @@ def get_sales_procurement_trend():
     it_filter_si, it_args_si = _item_filter("sii")
     it_filter_pi, it_args_pi = _item_filter("pii")
 
-    for i in range(5, -1, -1):
+    num_months = int(frappe.form_dict.get("months", 6) or 6)
+
+    for i in range(num_months - 1, -1, -1):
         dt = add_months(today(), -i)
         month_start_dt = getdate(dt).replace(day=1)
         if i > 0:
@@ -333,3 +335,210 @@ def get_recent_icts():
             tuple(it_args),
             as_dict=True,
         )
+
+
+@frappe.whitelist()
+def get_top_items():
+    """Top selling items by revenue."""
+    company, item = _get_filters()
+    co_filter, co_args = _co_where("si.company")
+    it_filter, it_args = _item_filter("sii")
+
+    period = frappe.form_dict.get("period", "MTD") or "MTD"
+    date_cond, date_args = _period_condition(period)
+
+    return frappe.db.sql(
+        """SELECT sii.item_code, sii.item_name,
+            SUM(sii.amount) as total_revenue,
+            SUM(sii.qty) as total_qty,
+            COUNT(DISTINCT si.name) as invoice_count
+        FROM `tabSales Invoice` si
+        JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        WHERE si.docstatus = 1 """ + date_cond + co_filter + it_filter + """
+        GROUP BY sii.item_code
+        ORDER BY total_revenue DESC LIMIT 10""",
+        tuple(date_args) + tuple(co_args) + tuple(it_args),
+        as_dict=True,
+    )
+
+
+@frappe.whitelist()
+def get_top_customers():
+    """Top customers by purchase volume."""
+    company, item = _get_filters()
+    co_filter, co_args = _co_where("si.company")
+
+    period = frappe.form_dict.get("period", "MTD") or "MTD"
+    date_cond, date_args = _period_condition(period)
+
+    return frappe.db.sql(
+        """SELECT si.customer, si.customer_name,
+            SUM(si.base_grand_total) as total_amount,
+            COUNT(DISTINCT si.name) as invoice_count,
+            SUM(si.base_grand_total) / COUNT(DISTINCT si.name) as avg_invoice
+        FROM `tabSales Invoice` si
+        WHERE si.docstatus = 1 """ + date_cond + co_filter + """
+        GROUP BY si.customer
+        ORDER BY total_amount DESC LIMIT 10""",
+        tuple(date_args) + tuple(co_args),
+        as_dict=True,
+    )
+
+
+@frappe.whitelist()
+def get_warehouse_stock():
+    """Stock levels by warehouse."""
+    company, item = _get_filters()
+    it_filter, it_args = _item_filter("b")
+
+    if company and company != "All":
+        return frappe.db.sql(
+            """SELECT w.name as warehouse, w.company,
+                COUNT(DISTINCT b.item_code) as item_count,
+                SUM(b.actual_qty) as total_qty,
+                SUM(b.stock_value) as total_value
+            FROM `tabBin` b
+            JOIN `tabWarehouse` w ON w.name = b.warehouse
+            WHERE w.name LIKE '%% WH - %%' AND b.actual_qty != 0 AND w.company = %s """
+            + it_filter + """
+            GROUP BY w.name
+            ORDER BY w.company, total_qty DESC""",
+            (company,) + tuple(it_args),
+            as_dict=True,
+        )
+    else:
+        return frappe.db.sql(
+            """SELECT w.name as warehouse, w.company,
+                COUNT(DISTINCT b.item_code) as item_count,
+                SUM(b.actual_qty) as total_qty,
+                SUM(b.stock_value) as total_value
+            FROM `tabBin` b
+            JOIN `tabWarehouse` w ON w.name = b.warehouse
+            WHERE w.name LIKE '%% WH - %%' AND b.actual_qty != 0 """
+            + it_filter + """
+            GROUP BY w.name
+            ORDER BY w.company, total_qty DESC""",
+            tuple(it_args),
+            as_dict=True,
+        )
+
+
+@frappe.whitelist()
+def get_stock_movement():
+    """Recent stock ledger entries for movement chart."""
+    company, item = _get_filters()
+    it_filter, it_args = _item_filter("sle")
+
+    co_filter, co_args = _co_where("sle.company")
+
+    return frappe.db.sql(
+        """SELECT DATE(sle.posting_date) as date,
+            SUM(sle.actual_qty) as qty_change,
+            SUM(sle.stock_value_difference) as value_change
+        FROM `tabStock Ledger Entry` sle
+        WHERE sle.docstatus = 1 """
+        + co_filter + it_filter + """
+        GROUP BY DATE(sle.posting_date)
+        ORDER BY date DESC LIMIT 30""",
+        tuple(co_args) + tuple(it_args),
+        as_dict=True,
+    )
+
+
+@frappe.whitelist()
+def get_ict_chain():
+    """ICT chain details with child items."""
+    company, item = _get_filters()
+    it_filter, it_args = _item_filter("iti")
+
+    if company and company != "All":
+        rows = frappe.db.sql(
+            """SELECT it.name, it.company, it.to_company, it.total_qty,
+                it.grand_total, it.posting_date, it.status,
+                GROUP_CONCAT(DISTINCT iti.item_code) as items,
+                COUNT(DISTINCT iti.item_code) as item_count
+            FROM `tabInter Company Transfer` it
+            JOIN `tabInter Company Transfer Item` iti ON iti.parent = it.name
+            WHERE it.docstatus = 1 AND (it.company = %s OR it.to_company = %s) """
+            + it_filter + """
+            GROUP BY it.name ORDER BY it.posting_date DESC LIMIT 10""",
+            (company, company) + tuple(it_args),
+            as_dict=True,
+        )
+    else:
+        rows = frappe.db.sql(
+            """SELECT it.name, it.company, it.to_company, it.total_qty,
+                it.grand_total, it.posting_date, it.status,
+                GROUP_CONCAT(DISTINCT iti.item_code) as items,
+                COUNT(DISTINCT iti.item_code) as item_count
+            FROM `tabInter Company Transfer` it
+            JOIN `tabInter Company Transfer Item` iti ON iti.parent = it.name
+            WHERE it.docstatus = 1 """
+            + it_filter + """
+            GROUP BY it.name ORDER BY it.posting_date DESC LIMIT 10""",
+            tuple(it_args),
+            as_dict=True,
+        )
+    return rows
+
+
+@frappe.whitelist()
+def get_company_comparison():
+    """Company-wise comparison for current period."""
+    company, item = _get_filters()
+    it_filter, it_args = _item_filter("sii")
+
+    period = frappe.form_dict.get("period", "MTD") or "MTD"
+    date_cond, date_args = _period_condition(period)
+
+    companies = ["Geeta Enterprise", "Global Export", "Shubham Enterprise"]
+    result = []
+    for co in companies:
+        sales = frappe.db.sql(
+            """SELECT COALESCE(SUM(si.base_grand_total), 0) as total
+            FROM `tabSales Invoice` si
+            JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+            WHERE si.docstatus = 1 AND si.company = %s """ + date_cond + it_filter,
+            (co,) + tuple(date_args) + tuple(it_args),
+            as_dict=True,
+        )
+        purchase = frappe.db.sql(
+            """SELECT COALESCE(SUM(pi.base_grand_total), 0) as total
+            FROM `tabPurchase Invoice` pi
+            JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
+            WHERE pi.docstatus = 1 AND pi.company = %s """ + date_cond + _item_filter("pii")[0],
+            (co,) + tuple(date_args) + tuple(_item_filter("pii")[1]),
+            as_dict=True,
+        )
+        stock = frappe.db.sql(
+            """SELECT COALESCE(SUM(b.actual_qty), 0) as qty
+            FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
+            WHERE w.name LIKE 'Available WH - %%' AND b.actual_qty > 0 AND w.company = %s """
+            + _item_filter("b")[0],
+            (co,) + tuple(_item_filter("b")[1]),
+            as_dict=True,
+        )
+        result.append({
+            "company": co,
+            "abbr": {"Geeta Enterprise": "GE", "Global Export": "GEX", "Shubham Enterprise": "SHE"}.get(co, ""),
+            "sales": flt(sales[0].total) if sales else 0,
+            "purchase": flt(purchase[0].total) if purchase else 0,
+            "stock": flt(stock[0].qty) if stock else 0,
+        })
+    return result
+
+
+def _period_condition(period):
+    """Return date SQL condition and args for the given period."""
+    from frappe.utils import add_months as _add_months
+    today_dt = getdate(today())
+    if period == "QTD":
+        # Current quarter start
+        month = today_dt.month
+        q_month = ((month - 1) // 3) * 3 + 1
+        start = today_dt.replace(month=q_month, day=1)
+    elif period == "YTD":
+        start = today_dt.replace(month=1, day=1)
+    else:
+        start = get_first_day(today())
+    return "AND si.posting_date >= %s", [start]
