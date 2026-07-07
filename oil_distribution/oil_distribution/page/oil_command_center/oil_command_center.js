@@ -72,12 +72,12 @@ function get_dashboard_html() {
 	<div style="padding: 4px;">
 		<!-- KPI ROW 1 -->
 		<div class="kpi-row">
-			<div class="kpi-card kpi-blue" onclick="frappe.set_route('query-report', 'Sales Invoice');">
+			<div class="kpi-card kpi-blue" onclick="frappe.set_route('List', 'Sales Invoice');">
 				<div class="kpi-label">Total Sales (MTD)</div>
 				<div class="kpi-value" id="kpi-sales">--</div>
 				<div class="kpi-sub">Click to view Sales Invoices</div>
 			</div>
-			<div class="kpi-card kpi-green" onclick="frappe.set_route('query-report', 'Purchase Invoice');">
+			<div class="kpi-card kpi-green" onclick="frappe.set_route('List', 'Purchase Invoice');">
 				<div class="kpi-label">Total Procurement (MTD)</div>
 				<div class="kpi-value" id="kpi-proc">--</div>
 				<div class="kpi-sub">Click to view Purchase Invoices</div>
