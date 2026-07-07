@@ -127,16 +127,29 @@ def get_kpis(company="All"):
     result["negative_alerts"] = int(neg[0].cnt) if neg else 0
 
     # Intercompany Volume (ICT submitted this month)
-    ict = frappe.db.sql(
-        """
-        SELECT COALESCE(SUM(total_qty), 0) as qty
-        FROM `tabInter Company Transfer`
-        WHERE docstatus = 1
-        AND posting_date >= %s
-        """ + co_filter,
-        (get_first_day(today()),) + tuple(co_args),
-        as_dict=True,
-    )
+    if company and company != "All":
+        ict = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(total_qty), 0) as qty
+            FROM `tabInter Company Transfer`
+            WHERE docstatus = 1
+            AND posting_date >= %s
+            AND (company = %s OR to_company = %s)
+            """,
+            (get_first_day(today()), company, company),
+            as_dict=True,
+        )
+    else:
+        ict = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(total_qty), 0) as qty
+            FROM `tabInter Company Transfer`
+            WHERE docstatus = 1
+            AND posting_date >= %s
+            """,
+            (get_first_day(today()),),
+            as_dict=True,
+        )
     result["intercompany_volume"] = flt(ict[0].qty) if ict else 0
 
     return result
@@ -315,11 +328,11 @@ def get_recent_icts(company="All"):
             SELECT name, company, to_company, total_qty, grand_total, posting_date, status
             FROM `tabInter Company Transfer`
             WHERE docstatus = 1
-            AND company = %s
+            AND (company = %s OR to_company = %s)
             ORDER BY posting_date DESC
             LIMIT 10
             """,
-            (company,),
+            (company, company),
             as_dict=True,
         )
     else:
