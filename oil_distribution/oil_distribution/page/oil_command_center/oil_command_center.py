@@ -17,14 +17,14 @@ def _co_where(label="company"):
     return "", []
 
 
-def _item_filter(child_alias, company_col=None):
-    """Return SQL JOIN + WHERE for item filter on a child table.
-    child_alias: alias of child table (e.g. 'sii')
-    company_col: if set, also filter by company on child (e.g. 'sii.parenttype')
+def _item_filter(alias, field="item_code"):
+    """Return SQL WHERE fragment and args for item filter.
+    alias: table alias (e.g. 'sii', 'b', 'sr')
+    field: column name (default 'item_code'; use 'item' for Stock Reservation)
     """
     _, item = _get_filters()
     if item and item != "All":
-        return f"AND {child_alias}.item_code = %s", [item]
+        return f"AND {alias}.{field} = %s", [item]
     return "", []
 
 
@@ -284,7 +284,7 @@ def get_negative_stock():
 @frappe.whitelist()
 def get_recent_reservations():
     company, item = _get_filters()
-    it_filter, it_args = _item_filter("sr")
+    it_filter, it_args = _item_filter("sr", "item")
 
     if company and company != "All":
         return frappe.db.sql(
