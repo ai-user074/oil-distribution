@@ -32,18 +32,18 @@ doc_events = {
         "on_cancel": "oil_distribution.api.stock_events.handle_stock_entry_cancel",
     },
     "Stock Reservation": {
-        "on_submit": "oil_distribution.reservation_management.doctype.stock_reservation.stock_reservation.recalculate_on_change",
-        "on_cancel": "oil_distribution.reservation_management.doctype.stock_reservation.stock_reservation.recalculate_on_change",
+        "on_submit": "oil_distribution.oil_distribution.doctype.stock_reservation.stock_reservation.recalculate_on_change",
+        "on_cancel": "oil_distribution.oil_distribution.doctype.stock_reservation.stock_reservation.recalculate_on_change",
     }
 }
 
 scheduler_events = {
-    "daily": [
-        "oil_distribution.api.reports.daily_negative_stock_report"
-    ],
-    "cron": {
-        "0 8 * * *": [
-            "oil_distribution.api.reports.email_reserved_stock_report"
-        ]
-    }
+        "daily": [
+            "oil_distribution.api.reports.daily_negative_stock_report"
+        ],
+        "cron": {
+            "0 8 * * *": [
+                "oil_distribution.api.reports.email_reserved_stock_report"
+            ]
+        }
 }

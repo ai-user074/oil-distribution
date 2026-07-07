@@ -63,7 +63,7 @@ class StockDashboard {
 
 	load_swastik_card() {
 		frappe.call({
-			method: 'oil_distribution.intercompany_operations.page.stock_dashboard.stock_dashboard.get_swastik_total',
+			method: 'oil_distribution.oil_distribution.page.stock_dashboard.stock_dashboard.get_swastik_total',
 			callback: (r) => {
 				if (r.message) {
 					this.render_swastik_card(r.message);
@@ -135,7 +135,7 @@ class StockDashboard {
 
 	load_company_view() {
 		frappe.call({
-			method: 'oil_distribution.intercompany_operations.page.stock_dashboard.stock_dashboard.get_stock_summary',
+			method: 'oil_distribution.oil_distribution.page.stock_dashboard.stock_dashboard.get_stock_summary',
 			callback: (r) => {
 				if (r.message) {
 					this.render_company_view(r.message);
@@ -146,7 +146,7 @@ class StockDashboard {
 
 	load_item_view() {
 		frappe.call({
-			method: 'oil_distribution.intercompany_operations.page.stock_dashboard.stock_dashboard.get_item_wise_summary',
+			method: 'oil_distribution.oil_distribution.page.stock_dashboard.stock_dashboard.get_item_wise_summary',
 			callback: (r) => {
 				if (r.message) {
 					this.render_item_view(r.message);

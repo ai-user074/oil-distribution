@@ -1,0 +1,21 @@
+{
+ "creation": "2026-07-07 12:00:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-07-07 12:00:00",
+ "modified_by": "Administrator",
+ "module": "Oil Distribution",
+ "name": "oil-command-center",
+ "owner": "Administrator",
+ "page_name": "oil-command-center",
+ "roles": [
+  {"role": "Stock User"},
+  {"role": "Stock Manager"},
+  {"role": "Administrator"}
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "title": "Oil Command Center"
+}
