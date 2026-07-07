@@ -21,28 +21,27 @@ frappe.pages['stock-dashboard'].on_page_load = function (wrapper) {
 		page.main.find('#sd-panel-' + tab).show();
 	});
 
-	// Company filter
-	page.main.find('#sd-company-select').on('change', function () {
-		window.sd_company = $(this).val();
+	// Init company multi-select
+	sd_init_multi('sd-ms-company', [
+		{ value: 'Geeta Enterprise', label: 'Geeta Enterprise', abbr: 'GE' },
+		{ value: 'Global Export', label: 'Global Export', abbr: 'GEX' },
+		{ value: 'Shubham Enterprise', label: 'Shubham Enterprise', abbr: 'SHE' }
+	], function (selected) {
+		window.sd_company = selected.length === 0 ? 'All' : selected.join(',');
 		load_all();
 	});
 
-	// Item filter
-	page.main.find('#sd-item-select').on('change', function () {
-		window.sd_item = $(this).val();
+	// Init item multi-select (empty, populated async)
+	sd_init_multi('sd-ms-item', [], function (selected) {
+		window.sd_item = selected.length === 0 ? 'All' : selected.join(',');
 		load_all();
 	});
 
 	// Populate items
 	frappe.xcall('frappe.client.get_list', { doctype: 'Item', fields: ['item_code', 'item_name'], limit_page_length: 0, order_by: 'item_code asc' }).then(function (items) {
 		if (!items) return;
-		var sel = document.getElementById('sd-item-select');
-		items.forEach(function (item) {
-			var opt = document.createElement('option');
-			opt.value = item.item_code;
-			opt.textContent = item.item_code;
-			sel.appendChild(opt);
-		});
+		var opts = items.map(function (item) { return { value: item.item_code, label: item.item_code + ' — ' + item.item_name }; });
+		sd_update_options('sd-ms-item', opts);
 	});
 
 	page.add_button(__("Refresh"), function () { load_all(); }, "refresh");
@@ -135,22 +134,56 @@ function get_dashboard_html() {
 		/* Anim */
 		@keyframes sdFadeIn { 0%{opacity:0;transform:translateY(8px);}100%{opacity:1;transform:translateY(0);} }
 		.sd-anim { animation: sdFadeIn 0.35s ease both; }
+
+		/* Multi-select */
+		.sd-ms { position: relative; display: inline-block; }
+		.sd-ms-btn {
+			display: flex; align-items: center; gap: 6px;
+			padding: 5px 28px 5px 10px; border-radius: 7px; border: 1px solid #e2e8f0;
+			background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600;
+			cursor: pointer; min-width: 120px; white-space: nowrap;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E");
+			background-repeat: no-repeat; background-position: right 8px center;
+			transition: border-color 0.2s;
+		}
+		.sd-ms-btn:hover { border-color: #cbd5e1; }
+		.sd-ms-btn.sd-ms-open { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+		.sd-ms-btn .sd-ms-count { background: #3b82f6; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
+		.sd-ms-panel {
+			display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+			min-width: 220px; max-height: 280px; overflow-y: auto;
+			background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+			box-shadow: 0 8px 24px rgba(0,20,40,0.12); padding: 6px;
+		}
+		.sd-ms-panel.sd-ms-show { display: block; }
+		.sd-ms-search {
+			width: 100%; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px;
+			font-size: 11px; outline: none; margin-bottom: 4px;
+		}
+		.sd-ms-search:focus { border-color: #3b82f6; }
+		.sd-ms-actions { display: flex; gap: 4px; padding: 4px 0; border-bottom: 1px solid #f1f5f9; margin-bottom: 4px; }
+		.sd-ms-action {
+			padding: 3px 8px; border-radius: 5px; border: none; background: transparent;
+			font-size: 9px; font-weight: 700; cursor: pointer; color: #3b82f6;
+		}
+		.sd-ms-action:hover { background: #eff6ff; }
+		.sd-ms-opt {
+			display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+			border-radius: 6px; cursor: pointer; transition: background 0.1s;
+		}
+		.sd-ms-opt:hover { background: #f1f5f9; }
+		.sd-ms-opt input[type="checkbox"] { accent-color: #3b82f6; width: 14px; height: 14px; cursor: pointer; }
+		.sd-ms-opt-label { font-size: 11px; font-weight: 600; color: #334155; flex: 1; }
+		.sd-ms-opt-abbr { font-size: 9px; font-weight: 700; color: #94a3b8; }
 	</style>
 
 	<div class="sd">
 		<!-- FILTERS -->
-		<div class="sd-bar sd-anim">
+		<div class="sd-bar sd-anim" style="position:relative;z-index:100;">
 			<label>Company</label>
-			<select id="sd-company-select">
-				<option value="All" selected>All Companies</option>
-				<option value="Geeta Enterprise">Geeta Enterprise (GE)</option>
-				<option value="Global Export">Global Export (GEX)</option>
-				<option value="Shubham Enterprise">Shubham Enterprise (SHE)</option>
-			</select>
+			<div id="sd-ms-company" class="sd-ms"></div>
 			<label style="margin-left:8px;">Item</label>
-			<select id="sd-item-select" style="min-width:160px;">
-				<option value="All" selected>All Items</option>
-			</select>
+			<div id="sd-ms-item" class="sd-ms" style="min-width:200px;"></div>
 			<span id="sd-filter-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All</span>
 		</div>
 
@@ -240,6 +273,139 @@ function get_dashboard_html() {
 			</div>
 		</div>
 	</div>`;
+}
+
+/* ═══════════ MULTI-SELECT COMPONENT ═══════════ */
+
+function sd_init_multi(containerId, options, onChange) {
+	var container = document.getElementById(containerId);
+	if (!container) return;
+	container._selected = [];
+	container._options = options;
+	container._onChange = onChange;
+
+	var btn = document.createElement('div');
+	btn.className = 'sd-ms-btn';
+	btn.textContent = 'All';
+	container.appendChild(btn);
+
+	var panel = document.createElement('div');
+	panel.className = 'sd-ms-panel';
+	container.appendChild(panel);
+
+	document.addEventListener('click', function (e) {
+		if (!container.contains(e.target)) {
+			panel.classList.remove('sd-ms-show');
+			btn.classList.remove('sd-ms-open');
+		}
+	});
+
+	btn.addEventListener('click', function (e) {
+		e.stopPropagation();
+		var isOpen = panel.classList.contains('sd-ms-show');
+		document.querySelectorAll('.sd-ms-panel').forEach(function (p) { p.classList.remove('sd-ms-show'); });
+		document.querySelectorAll('.sd-ms-btn').forEach(function (b) { b.classList.remove('sd-ms-open'); });
+		if (!isOpen) {
+			panel.classList.add('sd-ms-show');
+			btn.classList.add('sd-ms-open');
+			sd_render_ms_panel(container);
+		}
+	});
+
+	sd_render_ms_panel(container);
+}
+
+function sd_render_ms_panel(container) {
+	var panel = container.querySelector('.sd-ms-panel');
+	var options = container._options || [];
+	var selected = container._selected;
+
+	var html = '<input class="sd-ms-search" type="text" placeholder="Search...">';
+	html += '<div class="sd-ms-actions">';
+	html += '<button class="sd-ms-action" data-action="all">Select All</button>';
+	html += '<button class="sd-ms-action" data-action="clear">Clear</button>';
+	html += '</div>';
+
+	options.forEach(function (opt) {
+		var checked = selected.indexOf(opt.value) !== -1 ? 'checked' : '';
+		var label = opt.label || opt.value;
+		var abbr = opt.abbr ? '<span class="sd-ms-opt-abbr">' + opt.abbr + '</span>' : '';
+		html += '<label class="sd-ms-opt">';
+		html += '<input type="checkbox" value="' + opt.value + '" ' + checked + '>';
+		html += '<span class="sd-ms-opt-label">' + label + '</span>';
+		html += abbr;
+		html += '</label>';
+	});
+
+	if (options.length === 0) {
+		html += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:10px;">Loading...</div>';
+	}
+
+	panel.innerHTML = html;
+
+	panel.querySelector('.sd-ms-search').addEventListener('input', function () {
+		var q = this.value.toLowerCase();
+		panel.querySelectorAll('.sd-ms-opt').forEach(function (opt) {
+			var label = opt.querySelector('.sd-ms-opt-label').textContent.toLowerCase();
+			opt.style.display = label.indexOf(q) !== -1 ? '' : 'none';
+		});
+	});
+
+	panel.querySelectorAll('.sd-ms-action').forEach(function (btn) {
+		btn.addEventListener('click', function (e) {
+			e.preventDefault();
+			var action = this.getAttribute('data-action');
+			if (action === 'all') {
+				container._selected = container._options.map(function (o) { return o.value; });
+			} else {
+				container._selected = [];
+			}
+			sd_update_ms_btn(container);
+			sd_render_ms_panel(container);
+			if (container._onChange) container._onChange(container._selected);
+		});
+	});
+
+	panel.querySelectorAll('.sd-ms-opt input[type="checkbox"]').forEach(function (cb) {
+		cb.addEventListener('change', function () {
+			var val = this.value;
+			if (this.checked) {
+				if (container._selected.indexOf(val) === -1) container._selected.push(val);
+			} else {
+				container._selected = container._selected.filter(function (v) { return v !== val; });
+			}
+			sd_update_ms_btn(container);
+			if (container._onChange) container._onChange(container._selected);
+		});
+	});
+}
+
+function sd_update_ms_btn(container) {
+	var btn = container.querySelector('.sd-ms-btn');
+	var sel = container._selected;
+	var opts = container._options || [];
+	if (sel.length === 0) {
+		btn.innerHTML = 'All';
+	} else if (sel.length <= 2) {
+		var labels = sel.map(function (v) {
+			var opt = opts.find(function (o) { return o.value === v; });
+			return opt ? (opt.abbr || opt.label || v) : v;
+		});
+		btn.innerHTML = labels.join(', ') + ' <span class="sd-ms-count">' + sel.length + '</span>';
+	} else {
+		btn.innerHTML = sel.length + ' selected <span class="sd-ms-count">' + sel.length + '</span>';
+	}
+}
+
+function sd_update_options(containerId, options) {
+	var container = document.getElementById(containerId);
+	if (!container) return;
+	container._options = options;
+	container._selected = [];
+	sd_update_ms_btn(container);
+	if (container.querySelector('.sd-ms-panel').classList.contains('sd-ms-show')) {
+		sd_render_ms_panel(container);
+	}
 }
 
 /* ═══════════ UTILITIES ═══════════ */

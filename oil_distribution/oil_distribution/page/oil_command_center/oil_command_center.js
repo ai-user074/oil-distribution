@@ -22,18 +22,6 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 		page.main.find('#oz-panel-' + tab).show();
 	});
 
-	// Company
-	page.main.find('#oz-company-select').on('change', function () {
-		window.oz_company = $(this).val();
-		load_all_data();
-	});
-
-	// Item
-	page.main.find('#oz-item-select').on('change', function () {
-		window.oz_item = $(this).val();
-		load_all_data();
-	});
-
 	// Period
 	page.main.find('.oz-period-btn').on('click', function () {
 		page.main.find('.oz-period-btn').removeClass('oz-period-active');
@@ -52,16 +40,27 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 		load_all_data();
 	});
 
+	// Init company multi-select
+	oz_init_multi('oz-ms-company', [
+		{ value: 'Geeta Enterprise', label: 'Geeta Enterprise', abbr: 'GE' },
+		{ value: 'Global Export', label: 'Global Export', abbr: 'GEX' },
+		{ value: 'Shubham Enterprise', label: 'Shubham Enterprise', abbr: 'SHE' }
+	], function (selected) {
+		window.oz_company = selected.length === 0 ? 'All' : selected.join(',');
+		load_all_data();
+	});
+
+	// Init item multi-select (empty, populated async)
+	oz_init_multi('oz-ms-item', [], function (selected) {
+		window.oz_item = selected.length === 0 ? 'All' : selected.join(',');
+		load_all_data();
+	});
+
 	// Populate items
 	frappe.xcall('frappe.client.get_list', { doctype: 'Item', fields: ['item_code', 'item_name'], limit_page_length: 0, order_by: 'item_code asc' }).then(function (items) {
 		if (!items) return;
-		var sel = document.getElementById('oz-item-select');
-		items.forEach(function (item) {
-			var opt = document.createElement('option');
-			opt.value = item.item_code;
-			opt.textContent = item.item_code;
-			sel.appendChild(opt);
-		});
+		var opts = items.map(function (item) { return { value: item.item_code, label: item.item_code + ' — ' + item.item_name }; });
+		oz_update_options('oz-ms-item', opts);
 	});
 
 	page.add_button(__("Refresh"), function () { load_all_data(); }, "refresh");
@@ -163,22 +162,56 @@ function get_dashboard_html() {
 
 		@keyframes ozFadeIn { 0%{opacity:0;transform:translateY(8px);}100%{opacity:1;transform:translateY(0);} }
 		.oz-anim { animation: ozFadeIn 0.35s ease both; }
+
+		/* Multi-select */
+		.oz-ms { position: relative; display: inline-block; }
+		.oz-ms-btn {
+			display: flex; align-items: center; gap: 6px;
+			padding: 5px 28px 5px 10px; border-radius: 7px; border: 1px solid #e2e8f0;
+			background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600;
+			cursor: pointer; min-width: 120px; white-space: nowrap;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E");
+			background-repeat: no-repeat; background-position: right 8px center;
+			transition: border-color 0.2s;
+		}
+		.oz-ms-btn:hover { border-color: #cbd5e1; }
+		.oz-ms-btn.oz-ms-open { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+		.oz-ms-btn .oz-ms-count { background: #3b82f6; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
+		.oz-ms-panel {
+			display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+			min-width: 220px; max-height: 280px; overflow-y: auto;
+			background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+			box-shadow: 0 8px 24px rgba(0,20,40,0.12); padding: 6px;
+		}
+		.oz-ms-panel.oz-ms-show { display: block; }
+		.oz-ms-search {
+			width: 100%; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px;
+			font-size: 11px; outline: none; margin-bottom: 4px;
+		}
+		.oz-ms-search:focus { border-color: #3b82f6; }
+		.oz-ms-actions { display: flex; gap: 4px; padding: 4px 0; border-bottom: 1px solid #f1f5f9; margin-bottom: 4px; }
+		.oz-ms-action {
+			padding: 3px 8px; border-radius: 5px; border: none; background: transparent;
+			font-size: 9px; font-weight: 700; cursor: pointer; color: #3b82f6;
+		}
+		.oz-ms-action:hover { background: #eff6ff; }
+		.oz-ms-opt {
+			display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+			border-radius: 6px; cursor: pointer; transition: background 0.1s;
+		}
+		.oz-ms-opt:hover { background: #f1f5f9; }
+		.oz-ms-opt input[type="checkbox"] { accent-color: #3b82f6; width: 14px; height: 14px; cursor: pointer; }
+		.oz-ms-opt-label { font-size: 11px; font-weight: 600; color: #334155; flex: 1; }
+		.oz-ms-opt-abbr { font-size: 9px; font-weight: 700; color: #94a3b8; }
 	</style>
 
 	<div class="oz">
 		<!-- FILTERS -->
-		<div class="oz-bar oz-anim">
+		<div class="oz-bar oz-anim" style="position:relative;z-index:100;">
 			<label>Company</label>
-			<select id="oz-company-select">
-				<option value="All" selected>All Companies</option>
-				<option value="Geeta Enterprise">Geeta Enterprise (GE)</option>
-				<option value="Global Export">Global Export (GEX)</option>
-				<option value="Shubham Enterprise">Shubham Enterprise (SHE)</option>
-			</select>
+			<div id="oz-ms-company" class="oz-ms"></div>
 			<label style="margin-left:8px;">Item</label>
-			<select id="oz-item-select" style="min-width:160px;">
-				<option value="All" selected>All Items</option>
-			</select>
+			<div id="oz-ms-item" class="oz-ms" style="min-width:200px;"></div>
 			<span id="oz-filter-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All</span>
 		</div>
 
@@ -431,6 +464,145 @@ function get_dashboard_html() {
 		</div>
 
 	</div>`;
+}
+
+/* ═══════════ MULTI-SELECT COMPONENT ═══════════ */
+
+function oz_init_multi(containerId, options, onChange) {
+	var container = document.getElementById(containerId);
+	if (!container) return;
+	container._selected = [];
+	container._options = options;
+	container._onChange = onChange;
+
+	var btn = document.createElement('div');
+	btn.className = 'oz-ms-btn';
+	btn.textContent = 'All';
+	container.appendChild(btn);
+
+	var panel = document.createElement('div');
+	panel.className = 'oz-ms-panel';
+	container.appendChild(panel);
+
+	// Close on outside click
+	document.addEventListener('click', function (e) {
+		if (!container.contains(e.target)) {
+			panel.classList.remove('oz-ms-show');
+			btn.classList.remove('oz-ms-open');
+		}
+	});
+
+	btn.addEventListener('click', function (e) {
+		e.stopPropagation();
+		var isOpen = panel.classList.contains('oz-ms-show');
+		// Close all other panels
+		document.querySelectorAll('.oz-ms-panel').forEach(function (p) { p.classList.remove('oz-ms-show'); });
+		document.querySelectorAll('.oz-ms-btn').forEach(function (b) { b.classList.remove('oz-ms-open'); });
+		if (!isOpen) {
+			panel.classList.add('oz-ms-show');
+			btn.classList.add('oz-ms-open');
+			oz_render_ms_panel(container);
+		}
+	});
+
+	oz_render_ms_panel(container);
+}
+
+function oz_render_ms_panel(container) {
+	var panel = container.querySelector('.oz-ms-panel');
+	var options = container._options || [];
+	var selected = container._selected;
+
+	var html = '<input class="oz-ms-search" type="text" placeholder="Search...">';
+	html += '<div class="oz-ms-actions">';
+	html += '<button class="oz-ms-action" data-action="all">Select All</button>';
+	html += '<button class="oz-ms-action" data-action="clear">Clear</button>';
+	html += '</div>';
+
+	options.forEach(function (opt) {
+		var checked = selected.indexOf(opt.value) !== -1 ? 'checked' : '';
+		var label = opt.label || opt.value;
+		var abbr = opt.abbr ? '<span class="oz-ms-opt-abbr">' + opt.abbr + '</span>' : '';
+		html += '<label class="oz-ms-opt">';
+		html += '<input type="checkbox" value="' + opt.value + '" ' + checked + '>';
+		html += '<span class="oz-ms-opt-label">' + label + '</span>';
+		html += abbr;
+		html += '</label>';
+	});
+
+	if (options.length === 0) {
+		html += '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:10px;">Loading...</div>';
+	}
+
+	panel.innerHTML = html;
+
+	// Search
+	panel.querySelector('.oz-ms-search').addEventListener('input', function () {
+		var q = this.value.toLowerCase();
+		panel.querySelectorAll('.oz-ms-opt').forEach(function (opt) {
+			var label = opt.querySelector('.oz-ms-opt-label').textContent.toLowerCase();
+			opt.style.display = label.indexOf(q) !== -1 ? '' : 'none';
+		});
+	});
+
+	// Select All / Clear
+	panel.querySelectorAll('.oz-ms-action').forEach(function (btn) {
+		btn.addEventListener('click', function (e) {
+			e.preventDefault();
+			var action = this.getAttribute('data-action');
+			if (action === 'all') {
+				container._selected = container._options.map(function (o) { return o.value; });
+			} else {
+				container._selected = [];
+			}
+			oz_update_ms_btn(container);
+			oz_render_ms_panel(container);
+			if (container._onChange) container._onChange(container._selected);
+		});
+	});
+
+	// Checkbox change
+	panel.querySelectorAll('.oz-ms-opt input[type="checkbox"]').forEach(function (cb) {
+		cb.addEventListener('change', function () {
+			var val = this.value;
+			if (this.checked) {
+				if (container._selected.indexOf(val) === -1) container._selected.push(val);
+			} else {
+				container._selected = container._selected.filter(function (v) { return v !== val; });
+			}
+			oz_update_ms_btn(container);
+			if (container._onChange) container._onChange(container._selected);
+		});
+	});
+}
+
+function oz_update_ms_btn(container) {
+	var btn = container.querySelector('.oz-ms-btn');
+	var sel = container._selected;
+	var opts = container._options || [];
+	if (sel.length === 0) {
+		btn.innerHTML = 'All';
+	} else if (sel.length <= 2) {
+		var labels = sel.map(function (v) {
+			var opt = opts.find(function (o) { return o.value === v; });
+			return opt ? (opt.abbr || opt.label || v) : v;
+		});
+		btn.innerHTML = labels.join(', ') + ' <span class="oz-ms-count">' + sel.length + '</span>';
+	} else {
+		btn.innerHTML = sel.length + ' selected <span class="oz-ms-count">' + sel.length + '</span>';
+	}
+}
+
+function oz_update_options(containerId, options) {
+	var container = document.getElementById(containerId);
+	if (!container) return;
+	container._options = options;
+	container._selected = [];
+	oz_update_ms_btn(container);
+	// If panel is open, re-render
+	if (container.querySelector('.oz-ms-panel').classList.contains('oz-ms-show')) {
+		oz_render_ms_panel(container);
+	}
 }
 
 /* ═══════════ UTILITIES ═══════════ */

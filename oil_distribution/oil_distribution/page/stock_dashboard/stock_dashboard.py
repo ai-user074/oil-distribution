@@ -8,17 +8,27 @@ def _get_filters():
     return company, item
 
 
+def _parse_csv(val):
+    if not val or val == "All":
+        return []
+    return [v.strip() for v in val.split(",") if v.strip() and v.strip() != "All"]
+
+
 def _co_filter(alias="w"):
     company, _ = _get_filters()
-    if company != "All":
-        return f"AND {alias}.company = %s", [company]
+    vals = _parse_csv(company)
+    if vals:
+        placeholders = ", ".join(["%s"] * len(vals))
+        return f"AND {alias}.company IN ({placeholders})", vals
     return "", []
 
 
 def _item_filter(alias="b"):
     _, item = _get_filters()
-    if item != "All":
-        return f"AND {alias}.item_code = %s", [item]
+    vals = _parse_csv(item)
+    if vals:
+        placeholders = ", ".join(["%s"] * len(vals))
+        return f"AND {alias}.item_code IN ({placeholders})", vals
     return "", []
 
 

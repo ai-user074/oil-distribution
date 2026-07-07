@@ -3,28 +3,39 @@ from frappe.utils import flt, today, getdate, get_first_day, add_months
 
 
 def _get_filters():
-    """Get company and item from form_dict."""
+    """Get company and item from form_dict. Supports comma-separated multi-values."""
     company = frappe.form_dict.get("company", "All") or "All"
     item = frappe.form_dict.get("item", "All") or "All"
     return company, item
 
 
+def _parse_csv(val):
+    """Parse comma-separated value into a list, filtering out 'All' and empty."""
+    if not val or val == "All":
+        return []
+    return [v.strip() for v in val.split(",") if v.strip() and v.strip() != "All"]
+
+
 def _co_where(label="company"):
-    """Return SQL fragment and args for company filter."""
+    """Return SQL WHERE fragment and args for company filter (supports multi)."""
     company, _ = _get_filters()
-    if company and company != "All":
-        return f"AND {label} = %s", [company]
+    vals = _parse_csv(company)
+    if vals:
+        placeholders = ", ".join(["%s"] * len(vals))
+        return f"AND {label} IN ({placeholders})", vals
     return "", []
 
 
 def _item_filter(alias, field="item_code"):
-    """Return SQL WHERE fragment and args for item filter.
+    """Return SQL WHERE fragment and args for item filter (supports multi).
     alias: table alias (e.g. 'sii', 'b', 'sr')
     field: column name (default 'item_code'; use 'item' for Stock Reservation)
     """
     _, item = _get_filters()
-    if item and item != "All":
-        return f"AND {alias}.{field} = %s", [item]
+    vals = _parse_csv(item)
+    if vals:
+        placeholders = ", ".join(["%s"] * len(vals))
+        return f"AND {alias}.{field} IN ({placeholders})", vals
     return "", []
 
 
