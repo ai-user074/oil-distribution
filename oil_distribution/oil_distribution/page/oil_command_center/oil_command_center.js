@@ -20,204 +20,408 @@ function get_dashboard_html() {
 	return `
 	<style>
 		#page-oil-command-center .page-body { padding: 0 !important; background: #f8fafc; }
-		.oz-enter { animation: ozEnter 0.45s cubic-bezier(0.22,1,0.36,1) both; }
-		@keyframes ozEnter { 0% { opacity:0; transform:translateY(12px); } 100% { opacity:1; transform:translateY(0); } }
-		.oz-card { transition: all 0.35s cubic-bezier(0.23,1,0.32,1); }
-		.oz-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,20,40,0.08), 0 0 0 1px rgba(59,130,246,0.08); }
-		.oz-kpi { transition: all 0.3s cubic-bezier(0.23,1,0.32,1); cursor: pointer; }
-		.oz-kpi:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,20,40,0.1); }
-		.oz-table tr { transition: background 0.15s; }
-		.oz-table tr:hover { background: #f1f5f9; }
-		.oz-funnel-fill { transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+
+		.oz { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 20px; }
+		.oz * { box-sizing: border-box; }
+
+		.oz-card {
+			background: #fff;
+			border: 1px solid #e2e8f0;
+			border-radius: 16px;
+			padding: 20px;
+			box-shadow: 0 1px 3px rgba(0,20,40,0.04);
+			transition: all 0.3s ease;
+		}
+		.oz-card:hover {
+			box-shadow: 0 4px 16px rgba(0,20,40,0.08);
+			transform: translateY(-2px);
+		}
+
+		.oz-bar {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 8px 14px;
+			background: #fff;
+			border: 1px solid #e2e8f0;
+			border-radius: 12px;
+			margin-bottom: 16px;
+			box-shadow: 0 1px 2px rgba(0,20,40,0.03);
+		}
+		.oz-bar label {
+			font-size: 10px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			color: #94a3b8;
+			margin-right: 4px;
+		}
+		.oz-bar select {
+			padding: 6px 28px 6px 10px;
+			border-radius: 8px;
+			border: 1px solid #e2e8f0;
+			background: #f8fafc;
+			color: #334155;
+			font-size: 12px;
+			font-weight: 600;
+			cursor: pointer;
+			appearance: none;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+			background-repeat: no-repeat;
+			background-position: right 8px center;
+			transition: border-color 0.2s;
+		}
+		.oz-bar select:hover { border-color: #cbd5e1; }
+		.oz-bar select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+		.oz-section {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin: 20px 0 10px;
+		}
+		.oz-section-icon {
+			width: 28px; height: 28px;
+			border-radius: 8px;
+			display: flex; align-items: center; justify-content: center;
+			font-size: 13px;
+		}
+		.oz-section-title {
+			font-size: 12px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.8px;
+			color: #475569;
+		}
+		.oz-section-sub {
+			font-size: 10px;
+			color: #94a3b8;
+		}
+
+		.oz-kpi {
+			padding: 16px 12px;
+			border-radius: 12px;
+			text-align: center;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			border: 1px solid transparent;
+		}
+		.oz-kpi:hover {
+			transform: translateY(-3px);
+			box-shadow: 0 6px 16px rgba(0,20,40,0.08);
+		}
+		.oz-kpi-icon {
+			width: 32px; height: 32px;
+			border-radius: 8px;
+			display: flex; align-items: center; justify-content: center;
+			margin: 0 auto 6px;
+			font-size: 14px;
+			transition: transform 0.3s;
+		}
+		.oz-kpi:hover .oz-kpi-icon { transform: scale(1.1); }
+		.oz-kpi-val { font-size: 20px; font-weight: 800; line-height: 1; margin-bottom: 3px; }
+		.oz-kpi-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #94a3b8; }
+		.oz-kpi-sub { font-size: 9px; font-weight: 600; margin-top: 2px; }
+
+		.oz-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+		.oz-table th {
+			text-align: left;
+			padding: 6px 8px;
+			font-size: 9px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: #94a3b8;
+			background: #f8fafc;
+			border-bottom: 1px solid #f1f5f9;
+		}
+		.oz-table th:first-child { border-radius: 6px 0 0 0; }
+		.oz-table th:last-child { border-radius: 0 6px 0 0; }
+		.oz-table td {
+			padding: 7px 8px;
+			border-bottom: 1px solid #f8fafc;
+			color: #64748b;
+		}
+		.oz-table tr {
+			cursor: pointer;
+			transition: background 0.15s;
+		}
+		.oz-table tr:hover { background: #f8fafc; }
+
+		.oz-funnel-bar {
+			height: 7px;
+			border-radius: 7px;
+			background: #f1f5f9;
+			overflow: hidden;
+		}
+		.oz-funnel-fill {
+			height: 100%;
+			border-radius: 7px;
+			transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+		}
+
 		@keyframes ozLive { 0%,100%{opacity:1;}50%{opacity:.5;} }
 		.oz-live { animation: ozLive 2s ease-in-out infinite; }
-		.oz-heat { transition: all 0.2s; }
-		.oz-heat:hover { transform: scale(1.05); }
-		.oz-tl-item { transition: all 0.2s; }
-		.oz-tl-item:hover { background: #f1f5f9; transform: translateX(3px); }
-		.oz-ring-track { transition: stroke-dasharray 1s ease; }
+
+		.oz-badge {
+			display: inline-block;
+			font-size: 9px;
+			font-weight: 700;
+			padding: 2px 7px;
+			border-radius: 20px;
+		}
+
+		.oz-stat {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 7px 10px;
+			border-radius: 8px;
+			margin-bottom: 5px;
+			transition: transform 0.2s;
+		}
+		.oz-stat:hover { transform: translateX(3px); }
+		.oz-stat-dot { width: 5px; height: 22px; border-radius: 3px; flex-shrink: 0; }
+		.oz-stat-lbl { flex: 1; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; }
+		.oz-stat-val { font-size: 13px; font-weight: 800; }
+
+		.oz-heat {
+			text-align: center;
+			padding: 10px 6px;
+			border-radius: 8px;
+			border: 1px solid #f1f5f9;
+			background: #f8fafc;
+			transition: all 0.2s;
+			cursor: default;
+		}
+		.oz-heat:hover { transform: scale(1.05); background: #f1f5f9; }
+
+		.oz-tl {
+			position: relative;
+			padding-left: 16px;
+		}
+		.oz-tl::before {
+			content: '';
+			position: absolute;
+			left: 6px; top: 4px; bottom: 4px;
+			width: 1px;
+			background: linear-gradient(to bottom, #cbd5e1, transparent);
+		}
+		.oz-tl-item {
+			display: flex;
+			gap: 10px;
+			padding: 6px 6px;
+			border-radius: 8px;
+			margin-bottom: 2px;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+		.oz-tl-item:hover { background: #f1f5f9; transform: translateX(2px); }
+		.oz-tl-dot {
+			width: 26px; height: 26px;
+			border-radius: 7px;
+			display: flex; align-items: center; justify-content: center;
+			flex-shrink: 0;
+			font-size: 11px;
+			position: relative;
+			z-index: 1;
+		}
+
+		.oz-link {
+			font-size: 10px;
+			font-weight: 600;
+			color: #3b82f6;
+			cursor: pointer;
+			text-decoration: none;
+		}
+		.oz-link:hover { color: #1d4ed8; text-decoration: underline; }
+
+		@keyframes ozFadeIn { 0%{opacity:0;transform:translateY(10px);}100%{opacity:1;transform:translateY(0);} }
+		.oz-anim { animation: ozFadeIn 0.4s ease both; }
 	</style>
 
-	<div class="p-5 min-h-screen bg-slate-50">
+	<div class="oz">
 
 		<!-- ═══ COMPANY SELECTOR ═══ -->
-		<div class="flex items-center gap-2 p-2 bg-white rounded-2xl border border-slate-200 shadow-sm mb-5 oz-enter" style="animation-delay:0.02s">
-			<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2 mr-1">Company</span>
-			<button class="oz-company-btn px-4 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide border border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all" onclick="oz_set_company('All',this)">All Companies</button>
-			<button class="oz-company-btn px-4 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide border border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all" onclick="oz_set_company('Geeta Enterprise',this)">Geeta Enterprise</button>
-			<button class="oz-company-btn px-4 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide border border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all" onclick="oz_set_company('Global Export',this)">Global Export</button>
-			<button class="oz-company-btn px-4 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide border border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all" onclick="oz_set_company('Shubham Enterprise',this)">Shubham Enterprise</button>
+		<div class="oz-bar oz-anim" style="animation-delay:0.02s">
+			<label>Company</label>
+			<select id="oz-company-select" onchange="oz_set_company(this.value)">
+				<option value="All" selected>All Companies</option>
+				<option value="Geeta Enterprise">Geeta Enterprise (GE)</option>
+				<option value="Global Export">Global Export (GEX)</option>
+				<option value="Shubham Enterprise">Shubham Enterprise (SHE)</option>
+			</select>
+			<span id="oz-company-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All</span>
 		</div>
 
 		<!-- ═══ KEY METRICS ═══ -->
-		<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-4 oz-enter" style="animation-delay:0.04s">
-			<div class="flex items-center gap-2 mb-4">
-				<div class="w-2 h-2 rounded-full bg-emerald-400 oz-live"></div>
-				<h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Key Metrics</h3>
+		<div class="oz-card oz-anim" style="animation-delay:0.04s">
+			<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+				<div class="oz-live" style="width:6px;height:6px;border-radius:50%;background:#10b981;"></div>
+				<h3 style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin:0;">Key Metrics</h3>
 			</div>
-			<div class="grid grid-cols-6 gap-3" id="oz-kpis">
-				<div class="oz-kpi rounded-xl p-4 text-center bg-blue-50 border border-blue-100" onclick="frappe.set_route('List','Sales Invoice')">
-					<div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2 text-sm font-bold">₹</div>
-					<div class="text-xl font-extrabold text-blue-600" id="oz-kpi-sales">--</div>
-					<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Sales (MTD)</div>
-					<div class="text-[9px] font-semibold text-blue-500 mt-0.5">Click to view</div>
+			<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;" id="oz-kpis">
+				<div class="oz-kpi" style="background:#eff6ff;border-color:#dbeafe;" onclick="frappe.set_route('List','Sales Invoice')">
+					<div class="oz-kpi-icon" style="background:#dbeafe;color:#3b82f6;">₹</div>
+					<div class="oz-kpi-val" id="oz-kpi-sales" style="color:#3b82f6;">--</div>
+					<div class="oz-kpi-lbl">Sales (MTD)</div>
+					<div class="oz-kpi-sub" style="color:#3b82f6;">Click to view</div>
 				</div>
-				<div class="oz-kpi rounded-xl p-4 text-center bg-emerald-50 border border-emerald-100" onclick="frappe.set_route('List','Purchase Invoice')">
-					<div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2 text-sm font-bold">₹</div>
-					<div class="text-xl font-extrabold text-emerald-600" id="oz-kpi-proc">--</div>
-					<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Procurement (MTD)</div>
-					<div class="text-[9px] font-semibold text-emerald-500 mt-0.5">Click to view</div>
+				<div class="oz-kpi" style="background:#ecfdf5;border-color:#d1fae5;" onclick="frappe.set_route('List','Purchase Invoice')">
+					<div class="oz-kpi-icon" style="background:#d1fae5;color:#059669;">₹</div>
+					<div class="oz-kpi-val" id="oz-kpi-proc" style="color:#059669;">--</div>
+					<div class="oz-kpi-lbl">Procurement (MTD)</div>
+					<div class="oz-kpi-sub" style="color:#059669;">Click to view</div>
 				</div>
-				<div class="oz-kpi rounded-xl p-4 text-center bg-violet-50 border border-violet-100" onclick="frappe.set_route('List','Bin',{warehouse:['like','Available WH%']})">
-					<div class="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center mx-auto mb-2 text-sm font-bold">📦</div>
-					<div class="text-xl font-extrabold text-violet-600" id="oz-kpi-avail">--</div>
-					<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Available Stock</div>
-					<div class="text-[9px] font-semibold text-violet-500 mt-0.5">Click to view bins</div>
+				<div class="oz-kpi" style="background:#f5f3ff;border-color:#ede9fe;" onclick="frappe.set_route('List','Bin',{warehouse:['like','Available WH%']})">
+					<div class="oz-kpi-icon" style="background:#ede9fe;color:#7c3aed;">📦</div>
+					<div class="oz-kpi-val" id="oz-kpi-avail" style="color:#7c3aed;">--</div>
+					<div class="oz-kpi-lbl">Available Stock</div>
+					<div class="oz-kpi-sub" style="color:#7c3aed;">Click to view bins</div>
 				</div>
-				<div class="oz-kpi rounded-xl p-4 text-center bg-amber-50 border border-amber-100" onclick="frappe.set_route('List','Stock Reservation',{status:'Reserved'})">
-					<div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2 text-sm font-bold">🔒</div>
-					<div class="text-xl font-extrabold text-amber-600" id="oz-kpi-reserved">--</div>
-					<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Swastik Reserved</div>
-					<div class="text-[9px] font-semibold text-amber-500 mt-0.5">Click to view</div>
+				<div class="oz-kpi" style="background:#fffbeb;border-color:#fef3c7;" onclick="frappe.set_route('List','Stock Reservation',{status:'Reserved'})">
+					<div class="oz-kpi-icon" style="background:#fef3c7;color:#d97706;">🔒</div>
+					<div class="oz-kpi-val" id="oz-kpi-reserved" style="color:#d97706;">--</div>
+					<div class="oz-kpi-lbl">Swastik Reserved</div>
+					<div class="oz-kpi-sub" style="color:#d97706;">Click to view</div>
 				</div>
-				<div class="oz-kpi rounded-xl p-4 text-center bg-rose-50 border border-rose-100" onclick="frappe.set_route('List','Bin',{actual_qty:['<',0]})">
-					<div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-2 text-sm font-bold">⚠</div>
-					<div class="text-xl font-extrabold text-rose-600" id="oz-kpi-neg">--</div>
-					<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Negative Alerts</div>
-					<div class="text-[9px] font-semibold text-rose-500 mt-0.5">Click to view</div>
+				<div class="oz-kpi" style="background:#fef2f2;border-color:#fecaca;" onclick="frappe.set_route('List','Bin',{actual_qty:['<',0]})">
+					<div class="oz-kpi-icon" style="background:#fecaca;color:#dc2626;">⚠</div>
+					<div class="oz-kpi-val" id="oz-kpi-neg" style="color:#dc2626;">--</div>
+					<div class="oz-kpi-lbl">Negative Alerts</div>
+					<div class="oz-kpi-sub" style="color:#dc2626;">Click to view</div>
 				</div>
-				<div class="oz-kpi rounded-xl p-4 text-center bg-cyan-50 border border-cyan-100" onclick="frappe.set_route('List','Inter Company Transfer',{docstatus:1})">
-					<div class="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center mx-auto mb-2 text-sm font-bold">🔄</div>
-					<div class="text-xl font-extrabold text-cyan-600" id="oz-kpi-ict">--</div>
-					<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">ICT Volume (MTD)</div>
-					<div class="text-[9px] font-semibold text-cyan-500 mt-0.5">Click to view</div>
+				<div class="oz-kpi" style="background:#ecfeff;border-color:#cffafe;" onclick="frappe.set_route('List','Inter Company Transfer',{docstatus:1})">
+					<div class="oz-kpi-icon" style="background:#cffafe;color:#0891b2;">🔄</div>
+					<div class="oz-kpi-val" id="oz-kpi-ict" style="color:#0891b2;">--</div>
+					<div class="oz-kpi-lbl">ICT Volume (MTD)</div>
+					<div class="oz-kpi-sub" style="color:#0891b2;">Click to view</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- ═══ SALES & PROCUREMENT INTELLIGENCE ═══ -->
-		<div class="flex items-center gap-2 mb-3 oz-enter" style="animation-delay:0.08s">
-			<div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">📊</div>
+		<div class="oz-section oz-anim" style="animation-delay:0.08s">
+			<div class="oz-section-icon" style="background:#dbeafe;color:#3b82f6;">📊</div>
 			<div>
-				<div class="text-xs font-bold uppercase tracking-wider text-slate-600">Sales &amp; Procurement Intelligence</div>
-				<div class="text-[10px] text-slate-400">6-month trend analysis &amp; company distribution</div>
+				<div class="oz-section-title">Sales & Procurement Intelligence</div>
+				<div class="oz-section-sub">6-month trend analysis & company distribution</div>
 			</div>
 		</div>
-		<div class="grid grid-cols-2 gap-4 mb-4 oz-enter" style="animation-delay:0.1s">
-			<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-sm">📈</div>
+		<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;" class="oz-anim" style="animation-delay:0.1s">
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;color:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;">📈</div>
 					<div>
-						<div class="text-sm font-bold text-slate-700">Sales vs Procurement Trend</div>
-						<div class="text-[10px] text-slate-400">Last 6 months performance</div>
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Sales vs Procurement Trend</div>
+						<div style="font-size:9px;color:#94a3b8;">Last 6 months</div>
 					</div>
 				</div>
-				<div id="oz-chart-trend" style="min-height:200px;"></div>
+				<div id="oz-chart-trend" style="min-height:180px;"></div>
 			</div>
-			<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-sm">💡</div>
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;">💡</div>
 					<div>
-						<div class="text-sm font-bold text-slate-700">Stock Distribution</div>
-						<div class="text-[10px] text-slate-400">Available &amp; Reserved by company</div>
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Stock Distribution</div>
+						<div style="font-size:9px;color:#94a3b8;">Available & Reserved by company</div>
 					</div>
 				</div>
-				<div id="oz-chart-donut" style="min-height:200px;display:flex;align-items:center;justify-content:center;"></div>
+				<div id="oz-chart-donut" style="min-height:180px;display:flex;align-items:center;justify-content:center;"></div>
 			</div>
 		</div>
 
 		<!-- ═══ SWASTIK RESERVATION PIPELINE ═══ -->
-		<div class="flex items-center gap-2 mb-3 oz-enter" style="animation-delay:0.14s">
-			<div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">🛡</div>
+		<div class="oz-section oz-anim" style="animation-delay:0.14s">
+			<div class="oz-section-icon" style="background:#fef3c7;color:#d97706;">🛡</div>
 			<div>
-				<div class="text-xs font-bold uppercase tracking-wider text-slate-600">Swastik Reservation Pipeline</div>
-				<div class="text-[10px] text-slate-400">Stock reservation funnel &amp; throughput</div>
+				<div class="oz-section-title">Swastik Reservation Pipeline</div>
+				<div class="oz-section-sub">Stock reservation funnel & throughput</div>
 			</div>
 		</div>
-		<div class="grid grid-cols-12 gap-4 mb-4 oz-enter" style="animation-delay:0.16s">
-			<div class="col-span-5 oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5" id="oz-funnel">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center text-sm">🔥</div>
+		<div style="display:grid;grid-template-columns:5fr 3fr 4fr;gap:12px;margin-bottom:4px;" class="oz-anim" style="animation-delay:0.16s">
+			<div class="oz-card" id="oz-funnel">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#fef2f2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:13px;">🔥</div>
 					<div>
-						<div class="text-sm font-bold text-slate-700">Stock Funnel</div>
-						<div class="text-[10px] text-slate-400">From available to reserved</div>
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Stock Funnel</div>
+						<div style="font-size:9px;color:#94a3b8;">From available to reserved</div>
 					</div>
 				</div>
 				<div id="oz-funnel-content"></div>
 			</div>
-			<div class="col-span-3 oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-sm">⏱</div>
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;color:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;">⏱</div>
 					<div>
-						<div class="text-sm font-bold text-slate-700">Utilization Rate</div>
-						<div class="text-[10px] text-slate-400">Reserved vs Available</div>
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Utilization Rate</div>
+						<div style="font-size:9px;color:#94a3b8;">Reserved vs Available</div>
 					</div>
 				</div>
 				<div id="oz-ring" style="display:flex;justify-content:center;"></div>
 			</div>
-			<div class="col-span-4 oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm">⚙</div>
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#ecfdf5;color:#059669;display:flex;align-items:center;justify-content:center;font-size:13px;">⚙</div>
 					<div>
-						<div class="text-sm font-bold text-slate-700">Quick Stats</div>
-						<div class="text-[10px] text-slate-400">Live metrics</div>
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Quick Stats</div>
+						<div style="font-size:9px;color:#94a3b8;">Live metrics</div>
 					</div>
 				</div>
-				<div id="oz-mini-stats" class="space-y-2"></div>
+				<div id="oz-mini-stats"></div>
 			</div>
 		</div>
 
 		<!-- ═══ LIVE DATA ═══ -->
-		<div class="flex items-center gap-2 mb-3 oz-enter" style="animation-delay:0.2s">
-			<div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold">📋</div>
+		<div class="oz-section oz-anim" style="animation-delay:0.2s">
+			<div class="oz-section-icon" style="background:#d1fae5;color:#059669;">📋</div>
 			<div>
-				<div class="text-xs font-bold uppercase tracking-wider text-slate-600">Live Data</div>
-				<div class="text-[10px] text-slate-400">Reservations, transfers &amp; alerts</div>
+				<div class="oz-section-title">Live Data</div>
+				<div class="oz-section-sub">Reservations, transfers & alerts</div>
 			</div>
 		</div>
-		<div class="grid grid-cols-2 gap-4 mb-4 oz-enter" style="animation-delay:0.22s">
-			<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-sm">🔒</div>
-					<div class="flex-1">
-						<div class="text-sm font-bold text-slate-700">Active Reservations</div>
-						<div class="text-[10px] text-slate-400">Swastik reserved stock</div>
+		<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;" class="oz-anim" style="animation-delay:0.22s">
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:13px;">🔒</div>
+					<div style="flex:1;">
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Active Reservations</div>
+						<div style="font-size:9px;color:#94a3b8;">Swastik reserved stock</div>
 					</div>
-					<a class="text-[10px] font-semibold text-blue-500 hover:text-blue-700 cursor-pointer" onclick="frappe.set_route('List','Stock Reservation',{status:'Reserved'})">View All →</a>
+					<a class="oz-link" onclick="frappe.set_route('List','Stock Reservation',{status:'Reserved'})">View All →</a>
 				</div>
 				<div id="oz-table-res"></div>
 			</div>
-			<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center text-sm">🔄</div>
-					<div class="flex-1">
-						<div class="text-sm font-bold text-slate-700">Intercompany Transfers</div>
-						<div class="text-[10px] text-slate-400">Recent ICT chain activity</div>
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#cffafe;color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:13px;">🔄</div>
+					<div style="flex:1;">
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Intercompany Transfers</div>
+						<div style="font-size:9px;color:#94a3b8;">Recent ICT chain activity</div>
 					</div>
-					<a class="text-[10px] font-semibold text-blue-500 hover:text-blue-700 cursor-pointer" onclick="frappe.set_route('List','Inter Company Transfer')">View All →</a>
+					<a class="oz-link" onclick="frappe.set_route('List','Inter Company Transfer')">View All →</a>
 				</div>
 				<div id="oz-table-ict"></div>
 			</div>
 		</div>
-
-		<div class="grid grid-cols-2 gap-4 mb-4 oz-enter" style="animation-delay:0.26s">
-			<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center text-sm">⚠</div>
-					<div class="flex-1">
-						<div class="text-sm font-bold text-slate-700">Negative Stock Alerts</div>
-						<div class="text-[10px] text-slate-400">Warehouses requiring attention</div>
+		<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;" class="oz-anim" style="animation-delay:0.26s">
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#fef2f2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:13px;">⚠</div>
+					<div style="flex:1;">
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Negative Stock Alerts</div>
+						<div style="font-size:9px;color:#94a3b8;">Warehouses requiring attention</div>
 					</div>
-					<a class="text-[10px] font-semibold text-rose-500 hover:text-rose-700 cursor-pointer" onclick="frappe.set_route('List','Bin',{actual_qty:['<',0]})">View All →</a>
+					<a class="oz-link" style="color:#dc2626;" onclick="frappe.set_route('List','Bin',{actual_qty:['<',0]})">View All →</a>
 				</div>
 				<div id="oz-table-neg"></div>
 			</div>
-			<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-				<div class="flex items-center gap-2 mb-3">
-					<div class="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-sm">☁</div>
-					<div class="flex-1">
-						<div class="text-sm font-bold text-slate-700">Activity Feed</div>
-						<div class="text-[10px] text-slate-400">Latest system events</div>
+			<div class="oz-card">
+				<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+					<div style="width:30px;height:30px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;">☁</div>
+					<div style="flex:1;">
+						<div style="font-size:12px;font-weight:700;color:#1e293b;">Activity Feed</div>
+						<div style="font-size:9px;color:#94a3b8;">Latest system events</div>
 					</div>
 				</div>
 				<div id="oz-activity"></div>
@@ -225,38 +429,46 @@ function get_dashboard_html() {
 		</div>
 
 		<!-- ═══ COMPANY HEATMAP ═══ -->
-		<div class="flex items-center gap-2 mb-3 oz-enter" style="animation-delay:0.3s">
-			<div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">🌍</div>
+		<div class="oz-section oz-anim" style="animation-delay:0.3s">
+			<div class="oz-section-icon" style="background:#dbeafe;color:#3b82f6;">🌍</div>
 			<div>
-				<div class="text-xs font-bold uppercase tracking-wider text-slate-600">Company Heatmap</div>
-				<div class="text-[10px] text-slate-400">Cross-company stock &amp; transaction overview</div>
+				<div class="oz-section-title">Company Heatmap</div>
+				<div class="oz-section-sub">Cross-company stock & transaction overview</div>
 			</div>
 		</div>
-		<div class="oz-card bg-white rounded-2xl border border-slate-200 shadow-sm p-5 oz-enter" style="animation-delay:0.32s">
+		<div class="oz-card oz-anim" style="animation-delay:0.32s">
 			<div id="oz-heatmap"></div>
 		</div>
 	</div>`;
 }
 
 /* ═══════════════════════════════════════════════
-   UTILITIES
+   COMPANY SELECTOR
    ═══════════════════════════════════════════════ */
 
-function oz_set_company(company, btn) {
+function oz_set_company(company) {
 	window.oz_company = company;
-	document.querySelectorAll('.oz-company-btn').forEach(function(b) {
-		b.classList.remove('bg-blue-500','text-white','border-blue-500','shadow-sm');
-		b.classList.add('text-slate-400','border-transparent');
-	});
-	btn.classList.remove('text-slate-400','border-transparent');
-	btn.classList.add('bg-blue-500','text-white','border-blue-500','shadow-sm');
+	var tag = document.getElementById('oz-company-tag');
+	if (company === 'All') {
+		tag.textContent = 'All';
+		tag.style.background = '#eff6ff';
+		tag.style.color = '#3b82f6';
+	} else {
+		tag.textContent = company;
+		tag.style.background = '#ecfdf5';
+		tag.style.color = '#059669';
+	}
 	load_all_data();
 }
 
+/* ═══════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════ */
+
 function oz_k(v) {
 	v = parseFloat(v) || 0;
-	if (Math.abs(v) >= 1000) return '\u20B9' + (v / 1000).toFixed(1) + 'K';
-	return '\u20B9' + v.toFixed(0);
+	if (Math.abs(v) >= 1000) return '₹' + (v / 1000).toFixed(1) + 'K';
+	return '₹' + v.toFixed(0);
 }
 
 function oz_n(v) {
@@ -282,81 +494,72 @@ function oz_count(el, target, pre, suf, dur) {
    SVG CHARTS
    ═══════════════════════════════════════════════ */
 
-function oz_area(el, labels, values, color, h) {
-	h = h || 180;
-	if (!labels || !labels.length) { el.innerHTML = '<div class="text-center py-10 text-slate-400 text-xs">No data</div>'; return; }
+function oz_build_area(labels, values, color, h) {
+	h = h || 160;
+	if (!labels || !labels.length) return '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:10px;">No data</div>';
 	var mx = Math.max.apply(null, values) * 1.1 || 1;
-	var w = 460, p = {t:10,r:10,b:22,l:6};
-	var cw = w-p.r-p.l, ch = h-p.t-p.b;
-	var pts = values.map(function(v,i){ return {x:p.l+(i/(values.length-1||1))*cw, y:p.t+ch-(v/mx)*ch}; });
-	var path = pts.map(function(q,i){return(i===0?'M':'L')+' '+q.x+' '+q.y;}).join(' ');
-	var area = path+' L '+pts[pts.length-1].x+' '+(p.t+ch)+' L '+pts[0].x+' '+(p.t+ch)+' Z';
-	var gid='ag-'+color.replace('#','');
+	var w = 440, p = { t: 8, r: 8, b: 20, l: 4 };
+	var cw = w - p.r - p.l, ch = h - p.t - p.b;
+	var pts = values.map(function (v, i) {
+		return { x: p.l + (i / (values.length - 1 || 1)) * cw, y: p.t + ch - (v / mx) * ch };
+	});
+	var path = pts.map(function (q, i) { return (i === 0 ? 'M' : 'L') + ' ' + q.x + ' ' + q.y; }).join(' ');
+	var area = path + ' L ' + pts[pts.length - 1].x + ' ' + (p.t + ch) + ' L ' + pts[0].x + ' ' + (p.t + ch) + ' Z';
+	var gid = 'ag-' + color.replace('#', '');
 
-	var s='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px">';
-	s+='<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+color+'" stop-opacity="0.25"/><stop offset="100%" stop-color="'+color+'" stop-opacity="0.02"/></linearGradient></defs>';
-	for(var g=0;g<=4;g++){var gy=p.t+(g/4)*ch;s+='<line x1="'+p.l+'" y1="'+gy+'" x2="'+(w-p.r)+'" y2="'+gy+'" stroke="#e2e8f0" stroke-width="0.7" stroke-dasharray="4 4"/>';}
-	s+='<path d="'+area+'" fill="url(#'+gid+')"/>';
-	s+='<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
-	pts.forEach(function(q){s+='<circle cx="'+q.x+'" cy="'+q.y+'" r="4" fill="'+color+'" stroke="#fff" stroke-width="2"/>';});
-	labels.forEach(function(l,i){s+='<text x="'+pts[i].x+'" y="'+(h-4)+'" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">'+l+'</text>';});
-	s+='</svg>';
-	el.innerHTML=s;
+	var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:' + h + 'px;">';
+	s += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.2"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0.02"/></linearGradient></defs>';
+	for (var g = 0; g <= 4; g++) {
+		var gy = p.t + (g / 4) * ch;
+		s += '<line x1="' + p.l + '" y1="' + gy + '" x2="' + (w - p.r) + '" y2="' + gy + '" stroke="#e2e8f0" stroke-width="0.7" stroke-dasharray="4 4"/>';
+	}
+	s += '<path d="' + area + '" fill="url(#' + gid + ')"/>';
+	s += '<path d="' + path + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+	pts.forEach(function (q) {
+		s += '<circle cx="' + q.x + '" cy="' + q.y + '" r="4" fill="' + color + '" stroke="#fff" stroke-width="2"/>';
+	});
+	labels.forEach(function (l, i) {
+		s += '<text x="' + pts[i].x + '" y="' + (h - 4) + '" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">' + l + '</text>';
+	});
+	s += '</svg>';
+	return s;
 }
 
 function oz_donut(el, data, size) {
-	size=size||160;
-	var total=data.reduce(function(s,d){return s+d.value;},0);
-	if(total===0){el.innerHTML='<div class="text-center py-10 text-slate-400 text-xs">No data</div>';return;}
-	var r=(size-18)/2,c=2*Math.PI*r,ct=size/2,cum=0;
-	var s='<div class="relative" style="width:'+size+'px;height:'+size+'px">';
-	s+='<svg width="'+size+'" height="'+size+'" style="transform:rotate(-90deg)">';
-	s+='<circle cx="'+ct+'" cy="'+ct+'" r="'+r+'" fill="none" stroke="#f1f5f9" stroke-width="18"/>';
-	data.forEach(function(item){
-		var pct=item.value/total,adj=Math.max(0,pct-0.02);
-		var dash=c*adj+' '+(c*(1-adj)),off=-c*cum;
-		cum+=pct;
-		s+='<circle cx="'+ct+'" cy="'+ct+'" r="'+r+'" fill="none" stroke="'+item.color+'" stroke-width="18" stroke-dasharray="'+dash+'" stroke-dashoffset="'+off+'" stroke-linecap="round" class="oz-ring-track"/>';
+	size = size || 150;
+	var total = data.reduce(function (s, d) { return s + d.value; }, 0);
+	if (total === 0) { el.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:10px;">No data</div>'; return; }
+	var r = (size - 16) / 2, c = 2 * Math.PI * r, ct = size / 2, cum = 0;
+	var s = '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;">';
+	s += '<svg width="' + size + '" height="' + size + '" style="transform:rotate(-90deg);">';
+	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="16"/>';
+	data.forEach(function (item) {
+		var pct = item.value / total, adj = Math.max(0, pct - 0.02);
+		var dash = c * adj + ' ' + (c * (1 - adj)), off = -c * cum;
+		cum += pct;
+		s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="' + item.color + '" stroke-width="16" stroke-dasharray="' + dash + '" stroke-dashoffset="' + off + '" stroke-linecap="round"/>';
 	});
-	s+='</svg>';
-	s+='<div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-xl font-extrabold text-slate-700">'+total.toLocaleString()+'</span><span class="text-[8px] font-bold uppercase tracking-widest text-slate-400">Total</span></div></div>';
-	s+='<div class="flex flex-wrap gap-3 mt-3 justify-center">';
-	data.forEach(function(item){s+='<div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full" style="background:'+item.color+'"></div><span class="text-[10px] font-semibold text-slate-500">'+item.label+'</span><span class="text-[10px] font-bold" style="color:'+item.color+'">'+item.value+'</span></div>';});
-	s+='</div>';
-	el.innerHTML=s;
+	s += '</svg>';
+	s += '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:20px;font-weight:800;color:#1e293b;">' + total.toLocaleString() + '</span><span style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Total</span></div></div>';
+	s += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;justify-content:center;">';
+	data.forEach(function (item) {
+		s += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:' + item.color + ';"></div><span style="font-size:9px;font-weight:600;color:#64748b;">' + item.label + '</span><span style="font-size:9px;font-weight:700;color:' + item.color + ';">' + item.value + '</span></div>';
+	});
+	s += '</div>';
+	el.innerHTML = s;
 }
 
 function oz_ring(el, pct, c1, c2, sz) {
-	sz=sz||120; pct=Math.min(100,Math.max(0,pct));
-	var r=(sz-12)/2, circ=2*Math.PI*r, ct=sz/2;
-	var s='<div class="relative" style="width:'+sz+'px;height:'+sz+'px">';
-	s+='<svg viewBox="0 0 '+sz+' '+sz+'" width="'+sz+'" height="'+sz+'" style="transform:rotate(-90deg)">';
-	s+='<circle cx="'+ct+'" cy="'+ct+'" r="'+r+'" fill="none" stroke="#f1f5f9" stroke-width="10"/>';
-	s+='<circle cx="'+ct+'" cy="'+ct+'" r="'+r+'" fill="none" stroke="url(#oring)" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+(circ*pct/100)+' '+(circ*(1-pct/100))+'" class="oz-ring-track"/>';
-	s+='<defs><linearGradient id="oring" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="'+(c1||'#3b82f6')+'"/><stop offset="100%" stop-color="'+(c2||'#8b5cf6')+'"/></linearGradient></defs>';
-	s+='</svg>';
-	s+='<div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-2xl font-extrabold text-slate-700">'+Math.round(pct)+'</span><span class="text-[8px] font-bold uppercase tracking-widest text-slate-400">% utilized</span></div></div>';
-	el.innerHTML=s;
-}
-
-function oz_build_area(labels, values, color, h) {
-	h=h||160;
-	if(!labels||!labels.length)return '';
-	var mx=Math.max.apply(null,values)*1.1||1;
-	var w=220,p={t:6,r:6,b:18,l:4};
-	var cw=w-p.r-p.l,ch=h-p.t-p.b;
-	var pts=values.map(function(v,i){return{x:p.l+(i/(values.length-1||1))*cw,y:p.t+ch-(v/mx)*ch};});
-	var path=pts.map(function(q,i){return(i===0?'M':'L')+' '+q.x+' '+q.y;}).join(' ');
-	var area=path+' L '+pts[pts.length-1].x+' '+(p.t+ch)+' L '+pts[0].x+' '+(p.t+ch)+' Z';
-	var gid='as-'+color.replace('#','');
-	var s='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px">';
-	s+='<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+color+'" stop-opacity="0.2"/><stop offset="100%" stop-color="'+color+'" stop-opacity="0.02"/></linearGradient></defs>';
-	s+='<path d="'+area+'" fill="url(#'+gid+')"/>';
-	s+='<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-	pts.forEach(function(q){s+='<circle cx="'+q.x+'" cy="'+q.y+'" r="3" fill="'+color+'" stroke="#fff" stroke-width="1.5"/>';});
-	labels.forEach(function(l,i){s+='<text x="'+pts[i].x+'" y="'+(h-2)+'" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600">'+l+'</text>';});
-	s+='</svg>';
-	return s;
+	sz = sz || 110; pct = Math.min(100, Math.max(0, pct));
+	var r = (sz - 10) / 2, circ = 2 * Math.PI * r, ct = sz / 2;
+	var s = '<div style="position:relative;width:' + sz + 'px;height:' + sz + 'px;">';
+	s += '<svg viewBox="0 0 ' + sz + ' ' + sz + '" width="' + sz + '" height="' + sz + '" style="transform:rotate(-90deg);">';
+	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="8"/>';
+	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="url(#oring)" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + (circ * pct / 100) + ' ' + (circ * (1 - pct / 100)) + '"/>';
+	s += '<defs><linearGradient id="oring" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="' + (c1 || '#3b82f6') + '"/><stop offset="100%" stop-color="' + (c2 || '#7c3aed') + '"/></linearGradient></defs>';
+	s += '</svg>';
+	s += '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:22px;font-weight:800;color:#1e293b;">' + Math.round(pct) + '</span><span style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">% utilized</span></div></div>';
+	el.innerHTML = s;
 }
 
 /* ═══════════════════════════════════════════════
@@ -366,64 +569,74 @@ function oz_build_area(labels, values, color, h) {
 function load_all_data() {
 	var co = window.oz_company;
 	$('#oz-kpi-sales,#oz-kpi-proc,#oz-kpi-avail,#oz-kpi-reserved,#oz-kpi-neg,#oz-kpi-ict').text('--');
-	$('#oz-chart-trend,#oz-chart-donut,#oz-funnel-content,#oz-ring,#oz-mini-stats,#oz-table-res,#oz-table-ict,#oz-table-neg,#oz-activity,#oz-heatmap').html('<div class="text-center py-8 text-slate-400 text-xs">Loading...</div>');
+	$('#oz-chart-trend,#oz-chart-donut,#oz-funnel-content,#oz-ring,#oz-mini-stats,#oz-table-res,#oz-table-ict,#oz-table-neg,#oz-activity,#oz-heatmap').html('<div style="text-align:center;padding:24px;color:#94a3b8;font-size:10px;">Loading...</div>');
 
 	// KPIs
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_kpis',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message)return;
-			var d=r.message;
+		callback: function (r) {
+			if (!r.message) return;
+			var d = r.message;
 
-			oz_count(document.getElementById('oz-kpi-sales'), Math.round(d.sales_mtd), '\u20B9', '');
-			setTimeout(function(){document.getElementById('oz-kpi-sales').textContent=oz_k(d.sales_mtd);},1300);
+			oz_count(document.getElementById('oz-kpi-sales'), Math.round(d.sales_mtd), '₹', '');
+			setTimeout(function () { document.getElementById('oz-kpi-sales').textContent = oz_k(d.sales_mtd); }, 1300);
 
-			oz_count(document.getElementById('oz-kpi-proc'), Math.round(d.procurement_mtd), '\u20B9', '');
-			setTimeout(function(){document.getElementById('oz-kpi-proc').textContent=oz_k(d.procurement_mtd);},1300);
+			oz_count(document.getElementById('oz-kpi-proc'), Math.round(d.procurement_mtd), '₹', '');
+			setTimeout(function () { document.getElementById('oz-kpi-proc').textContent = oz_k(d.procurement_mtd); }, 1300);
 
 			oz_count(document.getElementById('oz-kpi-avail'), Math.round(d.available_stock), '', ' L');
-			setTimeout(function(){document.getElementById('oz-kpi-avail').textContent=oz_n(d.available_stock)+' L';},1300);
+			setTimeout(function () { document.getElementById('oz-kpi-avail').textContent = oz_n(d.available_stock) + ' L'; }, 1300);
 
 			oz_count(document.getElementById('oz-kpi-reserved'), Math.round(d.reserved_stock), '', ' L');
-			setTimeout(function(){document.getElementById('oz-kpi-reserved').textContent=oz_n(d.reserved_stock)+' L';},1300);
+			setTimeout(function () { document.getElementById('oz-kpi-reserved').textContent = oz_n(d.reserved_stock) + ' L'; }, 1300);
 
 			oz_count(document.getElementById('oz-kpi-neg'), d.negative_alerts, '', '');
-			setTimeout(function(){document.getElementById('oz-kpi-neg').textContent=d.negative_alerts+' Alerts';},1300);
+			setTimeout(function () { document.getElementById('oz-kpi-neg').textContent = d.negative_alerts + ' Alerts'; }, 1300);
 
 			oz_count(document.getElementById('oz-kpi-ict'), Math.round(d.intercompany_volume), '', ' L');
-			setTimeout(function(){document.getElementById('oz-kpi-ict').textContent=oz_n(d.intercompany_volume)+' L';},1300);
+			setTimeout(function () { document.getElementById('oz-kpi-ict').textContent = oz_n(d.intercompany_volume) + ' L'; }, 1300);
 
 			// Funnel
-			var tot=d.available_stock+d.reserved_stock;
-			var avp=tot>0?(d.available_stock/tot)*100:0;
-			var rp=tot>0?(d.reserved_stock/tot)*100:0;
-			var fh='';
+			var tot = d.available_stock + d.reserved_stock;
+			var avp = tot > 0 ? (d.available_stock / tot) * 100 : 0;
+			var rp = tot > 0 ? (d.reserved_stock / tot) * 100 : 0;
+			var fh = '';
 			[
-				{l:'Total Stock',v:tot,c:'#3b82f6',p:100},
-				{l:'Available',v:d.available_stock,c:'#10b981',p:avp},
-				{l:'Swastik Reserved',v:d.reserved_stock,c:'#f59e0b',p:rp},
-				{l:'Negative Bins',v:d.negative_alerts,c:'#ef4444',p:tot>0?(d.negative_alerts/tot)*100:0}
-			].forEach(function(s){
-				fh+='<div class="mb-2.5"><div class="flex justify-between items-center mb-1"><span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">'+s.l+'</span><div class="flex items-center gap-2"><span class="text-sm font-extrabold" style="color:'+s.c+'">'+s.v.toLocaleString()+'</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="color:'+s.c+';background:'+s.c+'12">'+Math.round(s.p)+'%</span></div></div><div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="oz-funnel-fill h-full rounded-full" style="width:'+s.p+'%;background:linear-gradient(90deg,'+s.c+','+s.c+'aa)"></div></div></div>';
+				{ l: 'Total Stock', v: tot, c: '#3b82f6', p: 100 },
+				{ l: 'Available', v: d.available_stock, c: '#10b981', p: avp },
+				{ l: 'Swastik Reserved', v: d.reserved_stock, c: '#f59e0b', p: rp },
+				{ l: 'Negative Bins', v: d.negative_alerts, c: '#ef4444', p: tot > 0 ? (d.negative_alerts / tot) * 100 : 0 }
+			].forEach(function (s) {
+				fh += '<div style="margin-bottom:8px;">';
+				fh += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
+				fh += '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">' + s.l + '</span>';
+				fh += '<div style="display:flex;align-items:center;gap:6px;">';
+				fh += '<span style="font-size:13px;font-weight:800;color:' + s.c + ';">' + s.v.toLocaleString() + '</span>';
+				fh += '<span class="oz-badge" style="color:' + s.c + ';background:' + s.c + '12;">' + Math.round(s.p) + '%</span>';
+				fh += '</div></div>';
+				fh += '<div class="oz-funnel-bar"><div class="oz-funnel-fill" style="width:' + s.p + '%;background:linear-gradient(90deg,' + s.c + ',' + s.c + 'aa);"></div></div></div>';
 			});
 			$('#oz-funnel-content').html(fh);
 
 			// Ring
-			var util=tot>0?(d.reserved_stock/tot)*100:0;
-			oz_ring(document.getElementById('oz-ring'),util,'#3b82f6','#8b5cf6');
+			var util = tot > 0 ? (d.reserved_stock / tot) * 100 : 0;
+			oz_ring(document.getElementById('oz-ring'), util, '#3b82f6', '#7c3aed');
 
 			// Mini stats
-			var ms='';
+			var ms = '';
 			[
-				{l:'Sales',v:oz_k(d.sales_mtd),c:'#3b82f6'},
-				{l:'Procurement',v:oz_k(d.procurement_mtd),c:'#10b981'},
-				{l:'Available',v:oz_n(d.available_stock)+' L',c:'#8b5cf6'},
-				{l:'Reserved',v:oz_n(d.reserved_stock)+' L',c:'#f59e0b'},
-				{l:'ICTs',v:oz_n(d.intercompany_volume)+' L',c:'#06b6d4'},
-				{l:'Alerts',v:d.negative_alerts,c:'#ef4444'}
-			].forEach(function(s){
-				ms+='<div class="flex items-center gap-2 px-3 py-2 rounded-xl" style="background:'+s.c+'08"><div class="w-1 h-6 rounded-full" style="background:'+s.c+'"></div><span class="flex-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">'+s.l+'</span><span class="text-sm font-extrabold" style="color:'+s.c+'">'+s.v+'</span></div>';
+				{ l: 'Sales', v: oz_k(d.sales_mtd), c: '#3b82f6' },
+				{ l: 'Procurement', v: oz_k(d.procurement_mtd), c: '#10b981' },
+				{ l: 'Available', v: oz_n(d.available_stock) + ' L', c: '#7c3aed' },
+				{ l: 'Reserved', v: oz_n(d.reserved_stock) + ' L', c: '#f59e0b' },
+				{ l: 'ICTs', v: oz_n(d.intercompany_volume) + ' L', c: '#0891b2' },
+				{ l: 'Alerts', v: d.negative_alerts, c: '#ef4444' }
+			].forEach(function (s) {
+				ms += '<div class="oz-stat" style="background:' + s.c + '08;">';
+				ms += '<div class="oz-stat-dot" style="background:' + s.c + ';"></div>';
+				ms += '<span class="oz-stat-lbl">' + s.l + '</span>';
+				ms += '<span class="oz-stat-val" style="color:' + s.c + ';">' + s.v + '</span></div>';
 			});
 			$('#oz-mini-stats').html(ms);
 		}
@@ -433,10 +646,13 @@ function load_all_data() {
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_sales_procurement_trend',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message)return;
-			var d=r.message;
-			var h='<div class="flex gap-6"><div class="flex-1"><div class="flex items-center gap-2 mb-2"><div class="w-2 h-2 rounded-full bg-blue-500"></div><span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Sales</span></div>'+oz_build_area(d.labels,d.sales,'#3b82f6',160)+'</div><div class="flex-1"><div class="flex items-center gap-2 mb-2"><div class="w-2 h-2 rounded-full bg-emerald-500"></div><span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Procurement</span></div>'+oz_build_area(d.labels,d.purchase,'#10b981',160)+'</div></div>';
+		callback: function (r) {
+			if (!r.message) return;
+			var d = r.message;
+			var h = '<div style="display:flex;gap:20px;">';
+			h += '<div style="flex:1;"><div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:#3b82f6;"></div><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">Sales</span></div>' + oz_build_area(d.labels, d.sales, '#3b82f6', 150) + '</div>';
+			h += '<div style="flex:1;"><div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:#10b981;"></div><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">Procurement</span></div>' + oz_build_area(d.labels, d.purchase, '#10b981', 150) + '</div>';
+			h += '</div>';
 			$('#oz-chart-trend').html(h);
 		}
 	});
@@ -445,12 +661,12 @@ function load_all_data() {
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_company_stock_distribution',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message)return;
-			var d=r.message;
-			var cols=['#3b82f6','#10b981','#f59e0b','#8b5cf6'];
-			var data=d.labels.map(function(l,i){return{label:l,value:Math.round(d.values[i]),color:cols[i]||cols[3]};});
-			oz_donut(document.getElementById('oz-chart-donut'),data,150);
+		callback: function (r) {
+			if (!r.message) return;
+			var d = r.message;
+			var cols = ['#3b82f6', '#10b981', '#f59e0b', '#7c3aed'];
+			var data = d.labels.map(function (l, i) { return { label: l, value: Math.round(d.values[i]), color: cols[i] || cols[3] }; });
+			oz_donut(document.getElementById('oz-chart-donut'), data, 140);
 		}
 	});
 
@@ -458,19 +674,19 @@ function load_all_data() {
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_recent_reservations',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message||!r.message.length){$('#oz-table-res').html('<div class="text-center py-6 text-slate-400 text-xs">No active reservations</div>');return;}
-			var h='<table class="oz-table w-full text-xs"><thead><tr class="border-b border-slate-100"><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 rounded-tl-lg">ID</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Company</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Item</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Qty</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">For</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 rounded-tr-lg">Status</th></tr></thead><tbody>';
-			r.message.forEach(function(row){
-				h+='<tr class="border-b border-slate-50 cursor-pointer" onclick="frappe.set_route(\'Form\',\'Stock Reservation\',\''+row.name+'\')">';
-				h+='<td class="py-2 px-2 font-bold text-blue-600">'+row.name+'</td>';
-				h+='<td class="py-2 px-2 text-slate-500">'+(row.company||'')+'</td>';
-				h+='<td class="py-2 px-2 text-slate-500">'+(row.item||'')+'</td>';
-				h+='<td class="py-2 px-2 font-extrabold text-slate-700">'+oz_n(row.reserved_qty)+'</td>';
-				h+='<td class="py-2 px-2"><span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600">'+(row.reserved_for||'')+'</span></td>';
-				h+='<td class="py-2 px-2"><span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">'+(row.status||'')+'</span></td></tr>';
+		callback: function (r) {
+			if (!r.message || !r.message.length) { $('#oz-table-res').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No active reservations</div>'); return; }
+			var h = '<table class="oz-table"><thead><tr><th>ID</th><th>Company</th><th>Item</th><th>Qty</th><th>For</th><th>Status</th></tr></thead><tbody>';
+			r.message.forEach(function (row) {
+				h += '<tr onclick="frappe.set_route(\'Form\',\'Stock Reservation\',\'' + row.name + '\')">';
+				h += '<td style="font-weight:700;color:#3b82f6;">' + row.name + '</td>';
+				h += '<td>' + (row.company || '') + '</td>';
+				h += '<td>' + (row.item || '') + '</td>';
+				h += '<td style="font-weight:800;color:#1e293b;">' + oz_n(row.reserved_qty) + '</td>';
+				h += '<td><span class="oz-badge" style="color:#7c3aed;background:#f5f3ff;">' + (row.reserved_for || '') + '</span></td>';
+				h += '<td><span class="oz-badge" style="color:#d97706;background:#fffbeb;">' + (row.status || '') + '</span></td></tr>';
 			});
-			h+='</tbody></table>';
+			h += '</tbody></table>';
 			$('#oz-table-res').html(h);
 		}
 	});
@@ -479,19 +695,19 @@ function load_all_data() {
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_recent_icts',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message||!r.message.length){$('#oz-table-ict').html('<div class="text-center py-6 text-slate-400 text-xs">No transfers yet</div>');return;}
-			var h='<table class="oz-table w-full text-xs"><thead><tr class="border-b border-slate-100"><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 rounded-tl-lg">ID</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">From</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">To</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Qty</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Value</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 rounded-tr-lg">Date</th></tr></thead><tbody>';
-			r.message.forEach(function(row){
-				h+='<tr class="border-b border-slate-50 cursor-pointer" onclick="frappe.set_route(\'Form\',\'Inter Company Transfer\',\''+row.name+'\')">';
-				h+='<td class="py-2 px-2 font-bold text-cyan-600">'+row.name+'</td>';
-				h+='<td class="py-2 px-2 text-slate-500">'+(row.company||'')+'</td>';
-				h+='<td class="py-2 px-2 text-slate-500">'+(row.to_company||'')+'</td>';
-				h+='<td class="py-2 px-2 font-extrabold text-slate-700">'+oz_n(row.total_qty)+'</td>';
-				h+='<td class="py-2 px-2 font-bold text-emerald-600">'+oz_k(row.grand_total)+'</td>';
-				h+='<td class="py-2 px-2 text-slate-400">'+frappe.datetime.str_to_user(row.posting_date)+'</td></tr>';
+		callback: function (r) {
+			if (!r.message || !r.message.length) { $('#oz-table-ict').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No transfers yet</div>'); return; }
+			var h = '<table class="oz-table"><thead><tr><th>ID</th><th>From</th><th>To</th><th>Qty</th><th>Value</th><th>Date</th></tr></thead><tbody>';
+			r.message.forEach(function (row) {
+				h += '<tr onclick="frappe.set_route(\'Form\',\'Inter Company Transfer\',\'' + row.name + '\')">';
+				h += '<td style="font-weight:700;color:#0891b2;">' + row.name + '</td>';
+				h += '<td>' + (row.company || '') + '</td>';
+				h += '<td>' + (row.to_company || '') + '</td>';
+				h += '<td style="font-weight:800;color:#1e293b;">' + oz_n(row.total_qty) + '</td>';
+				h += '<td style="font-weight:700;color:#059669;">' + oz_k(row.grand_total) + '</td>';
+				h += '<td style="color:#94a3b8;">' + frappe.datetime.str_to_user(row.posting_date) + '</td></tr>';
 			});
-			h+='</tbody></table>';
+			h += '</tbody></table>';
 			$('#oz-table-ict').html(h);
 		}
 	});
@@ -500,18 +716,18 @@ function load_all_data() {
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_negative_stock',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message||!r.message.length){$('#oz-table-neg').html('<div class="text-center py-6 text-emerald-500 text-xs font-semibold">✓ All clear — no negative stock</div>');return;}
-			var h='<table class="oz-table w-full text-xs"><thead><tr class="border-b border-slate-100"><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 rounded-tl-lg">Company</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Warehouse</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Item</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50">Neg Qty</th><th class="text-left py-2 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 rounded-tr-lg">Value</th></tr></thead><tbody>';
-			r.message.forEach(function(row){
-				h+='<tr class="border-b border-slate-50 cursor-pointer" onclick="frappe.set_route(\'Form\',\'Bin\',\''+row.warehouse+'/'+row.item_code+'\')">';
-				h+='<td class="py-2 px-2 text-slate-500">'+(row.company||'')+'</td>';
-				h+='<td class="py-2 px-2 text-slate-500">'+(row.warehouse||'')+'</td>';
-				h+='<td class="py-2 px-2 text-slate-500">'+(row.item_code||'')+'</td>';
-				h+='<td class="py-2 px-2 font-extrabold text-rose-600">'+oz_n(row.actual_qty)+'</td>';
-				h+='<td class="py-2 px-2 font-bold text-rose-600">'+oz_k(row.stock_value)+'</td></tr>';
+		callback: function (r) {
+			if (!r.message || !r.message.length) { $('#oz-table-neg').html('<div style="text-align:center;padding:20px;color:#059669;font-size:10px;font-weight:600;">✓ All clear — no negative stock</div>'); return; }
+			var h = '<table class="oz-table"><thead><tr><th>Company</th><th>Warehouse</th><th>Item</th><th>Neg Qty</th><th>Value</th></tr></thead><tbody>';
+			r.message.forEach(function (row) {
+				h += '<tr onclick="frappe.set_route(\'Form\',\'Bin\',\'' + row.warehouse + '/' + row.item_code + '\')">';
+				h += '<td>' + (row.company || '') + '</td>';
+				h += '<td>' + (row.warehouse || '') + '</td>';
+				h += '<td>' + (row.item_code || '') + '</td>';
+				h += '<td style="font-weight:800;color:#dc2626;">' + oz_n(row.actual_qty) + '</td>';
+				h += '<td style="font-weight:700;color:#dc2626;">' + oz_k(row.stock_value) + '</td></tr>';
 			});
-			h+='</tbody></table>';
+			h += '</tbody></table>';
 			$('#oz-table-neg').html(h);
 		}
 	});
@@ -520,17 +736,17 @@ function load_all_data() {
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_recent_icts',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message||!r.message.length){$('#oz-activity').html('<div class="text-center py-6 text-slate-400 text-xs">No recent activity</div>');return;}
-			var h='<div class="relative"><div class="absolute left-4 top-2 bottom-2 w-px bg-gradient-to-b from-blue-200 via-violet-200 to-transparent"></div>';
-			r.message.slice(0,6).forEach(function(row){
-				h+='<div class="oz-tl-item flex items-start gap-3 p-2 rounded-xl cursor-pointer">';
-				h+='<div class="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center flex-shrink-0 text-xs font-bold relative z-10">🔄</div>';
-				h+='<div class="flex-1 min-w-0"><div class="text-[11px] font-semibold text-slate-700 truncate">ICT '+row.name+': '+row.company+' → '+row.to_company+'</div>';
-				h+='<div class="flex items-center gap-2 mt-1"><div class="w-1 h-1 rounded-full bg-cyan-400"></div><span class="text-[9px] font-bold text-slate-400">'+frappe.datetime.str_to_user(row.posting_date)+'</span>';
-				h+='<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-50 text-cyan-600 ml-auto">'+oz_n(row.total_qty)+' L</span></div></div></div>';
+		callback: function (r) {
+			if (!r.message || !r.message.length) { $('#oz-activity').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No recent activity</div>'); return; }
+			var h = '<div class="oz-tl">';
+			r.message.slice(0, 6).forEach(function (row) {
+				h += '<div class="oz-tl-item">';
+				h += '<div class="oz-tl-dot" style="background:#ecfeff;color:#0891b2;">🔄</div>';
+				h += '<div style="flex:1;min-width:0;"><div style="font-size:10px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ICT ' + row.name + ': ' + row.company + ' → ' + row.to_company + '</div>';
+				h += '<div style="display:flex;align-items:center;gap:5px;margin-top:2px;"><div style="width:3px;height:3px;border-radius:50%;background:#0891b2;"></div><span style="font-size:8px;font-weight:700;color:#94a3b8;">' + frappe.datetime.str_to_user(row.posting_date) + '</span>';
+				h += '<span class="oz-badge" style="color:#0891b2;background:#ecfeff;margin-left:auto;">' + oz_n(row.total_qty) + ' L</span></div></div></div>';
 			});
-			h+='</div>';
+			h += '</div>';
 			$('#oz-activity').html(h);
 		}
 	});
@@ -539,31 +755,31 @@ function load_all_data() {
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_kpis',
 		args: { company: co },
-		callback: function(r) {
-			if(!r.message)return;
-			var d=r.message;
-			var co2=['GE','GEX','SHE'];
-			var ms=['Available','Reserved','Sales','Procurement'];
-			var vals=[
-				[Math.round(d.available_stock*0.4),Math.round(d.reserved_stock*0.15),Math.round(d.sales_mtd*0.35),Math.round(d.procurement_mtd*0.4)],
-				[Math.round(d.available_stock*0.35),Math.round(d.reserved_stock*0.1),Math.round(d.sales_mtd*0.35),Math.round(d.procurement_mtd*0.3)],
-				[Math.round(d.available_stock*0.25),Math.round(d.reserved_stock*0.75),Math.round(d.sales_mtd*0.3),Math.round(d.procurement_mtd*0.3)]
+		callback: function (r) {
+			if (!r.message) return;
+			var d = r.message;
+			var co2 = ['GE', 'GEX', 'SHE'];
+			var ms = ['Available', 'Reserved', 'Sales', 'Procurement'];
+			var vals = [
+				[Math.round(d.available_stock * 0.4), Math.round(d.reserved_stock * 0.15), Math.round(d.sales_mtd * 0.35), Math.round(d.procurement_mtd * 0.4)],
+				[Math.round(d.available_stock * 0.35), Math.round(d.reserved_stock * 0.1), Math.round(d.sales_mtd * 0.35), Math.round(d.procurement_mtd * 0.3)],
+				[Math.round(d.available_stock * 0.25), Math.round(d.reserved_stock * 0.75), Math.round(d.sales_mtd * 0.3), Math.round(d.procurement_mtd * 0.3)]
 			];
-			var mx=0;vals.forEach(function(r){r.forEach(function(v){if(v>mx)mx=v;});});mx=mx||1;
+			var mx = 0; vals.forEach(function (r) { r.forEach(function (v) { if (v > mx) mx = v; }); }); mx = mx || 1;
 
-			var h='<div class="grid gap-2" style="grid-template-columns:90px repeat(3,1fr)">';
-			h+='<div></div>';
-			co2.forEach(function(c){h+='<div class="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 py-1">'+c+'</div>';});
-			ms.forEach(function(m,mi){
-				h+='<div class="text-[10px] font-bold text-slate-500 py-2 px-2">'+m+'</div>';
-				vals.forEach(function(row,ci){
-					var v=row[mi],intens=v/mx;
-					var bg=intens>0.5?'bg-blue-50':intens>0.2?'bg-blue-50/60':'bg-slate-50';
-					var bd=intens>0.5?'border-blue-200':intens>0.2?'border-blue-100':'border-slate-100';
-					h+='<div class="oz-heat text-center py-3 px-2 rounded-xl border '+bd+' '+bg+'"><div class="text-sm font-extrabold text-slate-700">'+oz_n(v)+'</div></div>';
+			var h = '<div style="display:grid;grid-template-columns:80px repeat(3,1fr);gap:6px;">';
+			h += '<div></div>';
+			co2.forEach(function (c) { h += '<div style="text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;padding:4px;">' + c + '</div>'; });
+			ms.forEach(function (m, mi) {
+				h += '<div style="font-size:9px;font-weight:700;color:#64748b;padding:8px 4px;">' + m + '</div>';
+				vals.forEach(function (row, ci) {
+					var v = row[mi], intens = v / mx;
+					var bg = intens > 0.5 ? '#eff6ff' : intens > 0.2 ? '#f8fafc' : '#fafafa';
+					var bd = intens > 0.5 ? '#bfdbfe' : intens > 0.2 ? '#e2e8f0' : '#f1f5f9';
+					h += '<div class="oz-heat" style="border-color:' + bd + ';background:' + bg + ';"><div style="font-size:13px;font-weight:800;color:#1e293b;">' + oz_n(v) + '</div></div>';
 				});
 			});
-			h+='</div>';
+			h += '</div>';
 			$('#oz-heatmap').html(h);
 		}
 	});
