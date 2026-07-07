@@ -2,9 +2,15 @@ import frappe
 from frappe.utils import flt, today, getdate, get_first_day, add_months
 
 
+def _get_company():
+    """Get company from form_dict, fallback to 'All'."""
+    return frappe.form_dict.get("company", "All") or "All"
+
+
 @frappe.whitelist()
-def get_kpis(company="All"):
+def get_kpis(**kwargs):
     """Return all 6 KPI values, optionally filtered by company."""
+    company = kwargs.get("company") or _get_company()
     result = {
         "sales_mtd": 0,
         "procurement_mtd": 0,
@@ -156,8 +162,9 @@ def get_kpis(company="All"):
 
 
 @frappe.whitelist()
-def get_sales_procurement_trend(company="All"):
+def get_sales_procurement_trend(**kwargs):
     """Sales vs Procurement last 6 months."""
+    company = kwargs.get("company") or _get_company()
     months = []
     sales_data = []
     purchase_data = []
@@ -210,8 +217,9 @@ def get_sales_procurement_trend(company="All"):
 
 
 @frappe.whitelist()
-def get_company_stock_distribution(company="All"):
+def get_company_stock_distribution(**kwargs):
     """Company-wise stock from Available WHs."""
+    company = kwargs.get("company") or _get_company()
     if company and company != "All":
         data = frappe.db.sql(
             """
@@ -241,17 +249,30 @@ def get_company_stock_distribution(company="All"):
             as_dict=True,
         )
 
-    reserved_data = frappe.db.sql(
-        """
-        SELECT COALESCE(SUM(b.actual_qty), 0) as qty
-        FROM `tabBin` b
-        JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE w.name LIKE 'Reserved WH - %%'
-        AND b.actual_qty > 0
-        """ + ("AND w.company = %s" if company and company != "All" else ""),
-        (company,) if company and company != "All" else (),
-        as_dict=True,
-    )
+    if company and company != "All":
+        reserved_data = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(b.actual_qty), 0) as qty
+            FROM `tabBin` b
+            JOIN `tabWarehouse` w ON w.name = b.warehouse
+            WHERE w.name LIKE 'Reserved WH - %%'
+            AND b.actual_qty > 0
+            AND w.company = %s
+            """,
+            (company,),
+            as_dict=True,
+        )
+    else:
+        reserved_data = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(b.actual_qty), 0) as qty
+            FROM `tabBin` b
+            JOIN `tabWarehouse` w ON w.name = b.warehouse
+            WHERE w.name LIKE 'Reserved WH - %%'
+            AND b.actual_qty > 0
+            """,
+            as_dict=True,
+        )
 
     labels = [d.company for d in data] + ["Swastik Reserved"]
     values = [flt(d.qty) for d in data] + [flt(reserved_data[0].qty) if reserved_data else 0]
@@ -260,8 +281,9 @@ def get_company_stock_distribution(company="All"):
 
 
 @frappe.whitelist()
-def get_negative_stock(company="All"):
+def get_negative_stock(**kwargs):
     """All warehouses with negative stock."""
+    company = kwargs.get("company") or _get_company()
     if company and company != "All":
         return frappe.db.sql(
             """
@@ -291,8 +313,9 @@ def get_negative_stock(company="All"):
 
 
 @frappe.whitelist()
-def get_recent_reservations(company="All"):
+def get_recent_reservations(**kwargs):
     """Active stock reservations."""
+    company = kwargs.get("company") or _get_company()
     if company and company != "All":
         return frappe.db.sql(
             """
@@ -320,8 +343,9 @@ def get_recent_reservations(company="All"):
 
 
 @frappe.whitelist()
-def get_recent_icts(company="All"):
+def get_recent_icts(**kwargs):
     """Recent intercompany transfers."""
+    company = kwargs.get("company") or _get_company()
     if company and company != "All":
         return frappe.db.sql(
             """
