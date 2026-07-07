@@ -9,6 +9,24 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 
 	page.main.html(get_dashboard_html());
 
+	// Bind company selector via jQuery (more reliable than inline onchange)
+	page.main.find('#oz-company-select').on('change', function () {
+		var val = $(this).val();
+		console.log('[OIL CMD] select changed to:', val);
+		window.oz_company = val;
+		var tag = document.getElementById('oz-company-tag');
+		if (val === 'All') {
+			tag.textContent = 'All';
+			tag.style.background = '#eff6ff';
+			tag.style.color = '#3b82f6';
+		} else {
+			tag.textContent = val;
+			tag.style.background = '#ecfdf5';
+			tag.style.color = '#059669';
+		}
+		load_all_data();
+	});
+
 	page.add_button(__("Refresh"), function () {
 		load_all_data();
 	}, "refresh");
@@ -245,7 +263,7 @@ function get_dashboard_html() {
 		<!-- ═══ COMPANY SELECTOR ═══ -->
 		<div class="oz-bar oz-anim" style="animation-delay:0.02s">
 			<label>Company</label>
-			<select id="oz-company-select" onchange="oz_set_company(this.value)">
+			<select id="oz-company-select">>
 				<option value="All" selected>All Companies</option>
 				<option value="Geeta Enterprise">Geeta Enterprise (GE)</option>
 				<option value="Global Export">Global Export (GEX)</option>
@@ -443,25 +461,6 @@ function get_dashboard_html() {
 }
 
 /* ═══════════════════════════════════════════════
-   COMPANY SELECTOR
-   ═══════════════════════════════════════════════ */
-
-function oz_set_company(company) {
-	window.oz_company = company;
-	var tag = document.getElementById('oz-company-tag');
-	if (company === 'All') {
-		tag.textContent = 'All';
-		tag.style.background = '#eff6ff';
-		tag.style.color = '#3b82f6';
-	} else {
-		tag.textContent = company;
-		tag.style.background = '#ecfdf5';
-		tag.style.color = '#059669';
-	}
-	load_all_data();
-}
-
-/* ═══════════════════════════════════════════════
    UTILITIES
    ═══════════════════════════════════════════════ */
 
@@ -568,6 +567,7 @@ function oz_ring(el, pct, c1, c2, sz) {
 
 function load_all_data() {
 	var co = window.oz_company;
+	console.log('[OIL CMD] company=' + co);
 	$('#oz-kpi-sales,#oz-kpi-proc,#oz-kpi-avail,#oz-kpi-reserved,#oz-kpi-neg,#oz-kpi-ict').text('--');
 	$('#oz-chart-trend,#oz-chart-donut,#oz-funnel-content,#oz-ring,#oz-mini-stats,#oz-table-res,#oz-table-ict,#oz-table-neg,#oz-activity,#oz-heatmap').html('<div style="text-align:center;padding:24px;color:#94a3b8;font-size:10px;">Loading...</div>');
 
