@@ -143,6 +143,18 @@ function get_dashboard_html() {
 	</div>`;
 }
 
+function format_k(v) {
+	v = parseFloat(v) || 0;
+	if (Math.abs(v) >= 1000) return '₹' + (v / 1000).toFixed(1) + 'K';
+	return '₹' + v.toFixed(0);
+}
+
+function format_knum(v) {
+	v = parseFloat(v) || 0;
+	if (Math.abs(v) >= 1000) return (v / 1000).toFixed(1) + 'K';
+	return v.toFixed(0);
+}
+
 function load_all_data() {
 	// Reset to loading state
 	$('#kpi-sales, #kpi-proc, #kpi-avail, #kpi-reserved, #kpi-negative, #kpi-ict').text('--');
@@ -154,12 +166,12 @@ function load_all_data() {
 		callback: function (r) {
 			if (!r.message) return;
 			var d = r.message;
-			$('#kpi-sales').text(format_currency(d.sales_mtd));
-			$('#kpi-proc').text(format_currency(d.procurement_mtd));
-			$('#kpi-avail').text(format_number(d.available_stock) + ' L');
-			$('#kpi-reserved').text(format_number(d.reserved_stock) + ' L');
+			$('#kpi-sales').text(format_k(d.sales_mtd));
+			$('#kpi-proc').text(format_k(d.procurement_mtd));
+			$('#kpi-avail').text(format_knum(d.available_stock) + ' L');
+			$('#kpi-reserved').text(format_knum(d.reserved_stock) + ' L');
 			$('#kpi-negative').text(d.negative_alerts + ' Alerts');
-			$('#kpi-ict').text(format_number(d.intercompany_volume) + ' L');
+			$('#kpi-ict').text(format_knum(d.intercompany_volume) + ' L');
 		},
 	});
 
@@ -182,8 +194,8 @@ function load_all_data() {
 				height: 240,
 				colors: ['#1f6feb', '#10b981'],
 				lineOptions: { dotSize: 4, hideDots: 0 },
-				axisOptions: { xAxisMode: 'tick', yAxisMode: 'tick', yAxis: { format: function(v) { return '₹' + format_number(v); } } },
-				tooltipOptions: { formatTooltipY: function(v) { return '₹' + format_number(v); } },
+				axisOptions: { xAxisMode: 'tick', yAxisMode: 'tick', yAxis: { format: function(v) { return format_k(v); } } },
+				tooltipOptions: { formatTooltipY: function(v) { return format_k(v); } },
 			});
 		},
 	});
@@ -203,7 +215,7 @@ function load_all_data() {
 				type: 'donut',
 				height: 240,
 				colors: ['#1f6feb', '#10b981', '#f59e0b', '#a78bfa'],
-				tooltipOptions: { formatTooltipY: function(v) { return format_number(v) + ' L'; } },
+				tooltipOptions: { formatTooltipY: function(v) { return format_knum(v) + ' L'; } },
 			});
 		},
 	});
@@ -222,7 +234,7 @@ function load_all_data() {
 				html += '<td><strong>' + row.name + '</strong></td>';
 				html += '<td>' + (row.company || '') + '</td>';
 				html += '<td>' + (row.item || '') + '</td>';
-				html += '<td><strong>' + format_number(row.reserved_qty) + '</strong></td>';
+				html += '<td><strong>' + format_knum(row.reserved_qty) + '</strong></td>';
 				html += '<td>' + (row.reserved_for || '') + '</td>';
 				html += '<td><span class="badge-reserved">' + (row.status || '') + '</span></td>';
 				html += '</tr>';
@@ -246,8 +258,8 @@ function load_all_data() {
 				html += '<td><strong>' + row.name + '</strong></td>';
 				html += '<td>' + (row.company || '') + '</td>';
 				html += '<td>' + (row.to_company || '') + '</td>';
-				html += '<td><strong>' + format_number(row.total_qty) + '</strong></td>';
-				html += '<td>' + format_currency(row.grand_total) + '</td>';
+				html += '<td><strong>' + format_knum(row.total_qty) + '</strong></td>';
+				html += '<td>' + format_k(row.grand_total) + '</td>';
 				html += '<td>' + frappe.datetime.str_to_user(row.posting_date) + '</td>';
 				html += '</tr>';
 			});
@@ -270,8 +282,8 @@ function load_all_data() {
 				html += '<td>' + (row.company || '') + '</td>';
 				html += '<td>' + (row.warehouse || '') + '</td>';
 				html += '<td>' + (row.item_code || '') + '</td>';
-				html += '<td class="neg-qty">' + format_number(row.actual_qty) + '</td>';
-				html += '<td>' + format_currency(row.stock_value) + '</td>';
+				html += '<td class="neg-qty">' + format_knum(row.actual_qty) + '</td>';
+				html += '<td>' + format_k(row.stock_value) + '</td>';
 				html += '</tr>';
 			});
 			html += '</tbody></table>';
