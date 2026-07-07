@@ -107,9 +107,9 @@ def get_sales_procurement_trend():
         dt = add_months(today(), -i)
         month_start_dt = getdate(dt).replace(day=1)
         if i > 0:
-            month_end_dt = add_months(today(), -i + 1).replace(day=1)
+            month_end_dt = getdate(add_months(today(), -i + 1)).replace(day=1)
         else:
-            month_end_dt = add_months(today(), 1).replace(day=1)
+            month_end_dt = getdate(add_months(today(), 1)).replace(day=1)
 
         months.append(formatdate(month_start_dt, "MMM YYYY"))
 
