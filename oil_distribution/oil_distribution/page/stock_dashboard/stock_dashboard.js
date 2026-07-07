@@ -6,6 +6,7 @@ frappe.pages['stock-dashboard'].on_page_load = function (wrapper) {
 	});
 
 	window.sd_company = 'All';
+	window.sd_item = 'All';
 	window.sd_tab = 'overview';
 
 	page.main.html(get_dashboard_html());
@@ -24,6 +25,24 @@ frappe.pages['stock-dashboard'].on_page_load = function (wrapper) {
 	page.main.find('#sd-company-select').on('change', function () {
 		window.sd_company = $(this).val();
 		load_all();
+	});
+
+	// Item filter
+	page.main.find('#sd-item-select').on('change', function () {
+		window.sd_item = $(this).val();
+		load_all();
+	});
+
+	// Populate items
+	frappe.xcall('frappe.client.get_list', { doctype: 'Item', fields: ['item_code', 'item_name'], limit_page_length: 0, order_by: 'item_code asc' }).then(function (items) {
+		if (!items) return;
+		var sel = document.getElementById('sd-item-select');
+		items.forEach(function (item) {
+			var opt = document.createElement('option');
+			opt.value = item.item_code;
+			opt.textContent = item.item_code;
+			sel.appendChild(opt);
+		});
 	});
 
 	page.add_button(__("Refresh"), function () { load_all(); }, "refresh");
@@ -128,7 +147,11 @@ function get_dashboard_html() {
 				<option value="Global Export">Global Export (GEX)</option>
 				<option value="Shubham Enterprise">Shubham Enterprise (SHE)</option>
 			</select>
-			<span id="sd-filter-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All Companies</span>
+			<label style="margin-left:8px;">Item</label>
+			<select id="sd-item-select" style="min-width:160px;">
+				<option value="All" selected>All Items</option>
+			</select>
+			<span id="sd-filter-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All</span>
 		</div>
 
 		<!-- TABS -->
@@ -314,11 +337,15 @@ function sd_stacked_bars(el, labels, series) {
 
 function load_all() {
 	var co = window.sd_company;
+	var item = window.sd_item;
 	var tag = document.getElementById('sd-filter-tag');
-	if (co === 'All') { tag.textContent = 'All Companies'; tag.style.background = '#eff6ff'; tag.style.color = '#3b82f6'; }
-	else { tag.textContent = co; tag.style.background = '#ecfdf5'; tag.style.color = '#059669'; }
+	var parts = [];
+	if (co !== 'All') parts.push(co);
+	if (item !== 'All') parts.push(item);
+	if (parts.length === 0) { tag.textContent = 'All'; tag.style.background = '#eff6ff'; tag.style.color = '#3b82f6'; }
+	else { tag.textContent = parts.join(' · '); tag.style.background = '#ecfdf5'; tag.style.color = '#059669'; }
 
-	var args = { company: co };
+	var args = { company: co, item: item };
 
 	// Clear all
 	$('#sd-kpis').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;grid-column:1/-1;">Loading...</div>');

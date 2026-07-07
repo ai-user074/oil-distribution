@@ -2,58 +2,70 @@ import frappe
 from frappe.utils import flt, today, getdate, get_first_day
 
 
-def _get_company():
-    return frappe.form_dict.get("company", "All") or "All"
+def _get_filters():
+    company = frappe.form_dict.get("company", "All") or "All"
+    item = frappe.form_dict.get("item", "All") or "All"
+    return company, item
+
+
+def _co_filter(alias="w"):
+    company, _ = _get_filters()
+    if company != "All":
+        return f"AND {alias}.company = %s", [company]
+    return "", []
+
+
+def _item_filter(alias="b"):
+    _, item = _get_filters()
+    if item != "All":
+        return f"AND {alias}.item_code = %s", [item]
+    return "", []
 
 
 @frappe.whitelist()
 def get_stock_kpis():
-    """Key metrics for stock dashboard."""
-    company = _get_company()
-    co_filter = ""
-    co_args = []
-    if company != "All":
-        co_filter = "AND w.company = %s"
-        co_args = [company]
+    company, item = _get_filters()
+    co_f, co_a = _co_filter()
+    it_f, it_a = _item_filter()
 
-    # Total available stock
     avail = frappe.db.sql(
         """SELECT COALESCE(SUM(b.actual_qty), 0) as qty, COALESCE(SUM(b.stock_value), 0) as val
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE w.name LIKE 'Available WH - %%' AND b.actual_qty > 0 """ + co_filter,
-        tuple(co_args), as_dict=True,
+        WHERE w.name LIKE 'Available WH - %%' AND b.actual_qty > 0 """
+        + co_f + it_f,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
-    # Total reserved stock (Swastik)
     reserved = frappe.db.sql(
         """SELECT COALESCE(SUM(b.actual_qty), 0) as qty, COALESCE(SUM(b.stock_value), 0) as val
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """ + co_filter,
-        tuple(co_args), as_dict=True,
+        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """
+        + co_f + it_f,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
-    # Negative stock count
     neg = frappe.db.sql(
         """SELECT COUNT(*) as cnt FROM `tabBin` b
         JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE b.actual_qty < 0 """ + co_filter,
-        tuple(co_args), as_dict=True,
+        WHERE b.actual_qty < 0 """
+        + co_f + it_f,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
-    # Total items in stock
-    items = frappe.db.sql(
+    items_count = frappe.db.sql(
         """SELECT COUNT(DISTINCT b.item_code) as cnt FROM `tabBin` b
         JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE b.actual_qty > 0 """ + co_filter,
-        tuple(co_args), as_dict=True,
+        WHERE b.actual_qty > 0 """
+        + co_f + it_f,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
-    # Total warehouses with stock
     wh_count = frappe.db.sql(
         """SELECT COUNT(DISTINCT w.name) as cnt FROM `tabBin` b
         JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE b.actual_qty > 0 """ + co_filter,
-        tuple(co_args), as_dict=True,
+        WHERE b.actual_qty > 0 """
+        + co_f + it_f,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
     a_qty = flt(avail[0].qty) if avail else 0
@@ -69,7 +81,7 @@ def get_stock_kpis():
         "total_stock": a_qty + r_qty,
         "total_value": a_val + r_val,
         "negative_count": int(neg[0].cnt) if neg else 0,
-        "items_count": int(items[0].cnt) if items else 0,
+        "items_count": int(items_count[0].cnt) if items_count else 0,
         "warehouse_count": int(wh_count[0].cnt) if wh_count else 0,
         "utilization_pct": ((r_qty / (a_qty + r_qty)) * 100) if (a_qty + r_qty) > 0 else 0,
     }
@@ -77,15 +89,11 @@ def get_stock_kpis():
 
 @frappe.whitelist()
 def get_stock_by_company():
-    """Stock breakdown by company for charts and tables."""
-    company = _get_company()
-    co_filter = ""
-    co_args = []
-    if company != "All":
-        co_filter = "AND w.company = %s"
-        co_args = [company]
+    company, item = _get_filters()
+    co_f, co_a = _co_filter()
+    it_f, it_a = _item_filter()
 
-    data = frappe.db.sql(
+    return frappe.db.sql(
         """SELECT w.company,
             SUM(CASE WHEN w.name LIKE 'Available WH - %%' THEN b.actual_qty ELSE 0 END) as avail_qty,
             SUM(CASE WHEN w.name LIKE 'Available WH - %%' THEN b.stock_value ELSE 0 END) as avail_val,
@@ -95,55 +103,48 @@ def get_stock_by_company():
             SUM(b.stock_value) as total_value,
             COUNT(DISTINCT b.item_code) as item_count
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE b.actual_qty > 0 """ + co_filter + """
+        WHERE b.actual_qty > 0 """
+        + co_f + it_f + """
         GROUP BY w.company ORDER BY total_value DESC""",
-        tuple(co_args), as_dict=True,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
-    return data
 
 
 @frappe.whitelist()
 def get_stock_by_warehouse():
-    """Stock breakdown by warehouse."""
-    company = _get_company()
-    co_filter = ""
-    co_args = []
-    if company != "All":
-        co_filter = "AND w.company = %s"
-        co_args = [company]
+    company, item = _get_filters()
+    co_f, co_a = _co_filter()
+    it_f, it_a = _item_filter()
 
-    data = frappe.db.sql(
+    return frappe.db.sql(
         """SELECT w.name as warehouse, w.company, w.warehouse_type,
             SUM(b.actual_qty) as total_qty,
             SUM(b.stock_value) as total_value,
             COUNT(DISTINCT b.item_code) as item_count
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE b.actual_qty != 0 AND w.name LIKE '%% WH - %%' """ + co_filter + """
+        WHERE b.actual_qty != 0 AND w.name LIKE '%% WH - %%' """
+        + co_f + it_f + """
         GROUP BY w.name ORDER BY w.company, total_value DESC""",
-        tuple(co_args), as_dict=True,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
-    return data
 
 
 @frappe.whitelist()
 def get_stock_by_item():
-    """Item-wise stock summary across companies."""
-    company = _get_company()
-    co_filter = ""
-    co_args = []
-    if company != "All":
-        co_filter = "AND w.company = %s"
-        co_args = [company]
+    company, item = _get_filters()
+    co_f, co_a = _co_filter()
+    it_f, it_a = _item_filter()
 
     data = frappe.db.sql(
         """SELECT b.item_code, w.company,
             SUM(b.actual_qty) as qty,
             SUM(b.stock_value) as value
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE b.actual_qty != 0 """ + co_filter + """
+        WHERE b.actual_qty != 0 """
+        + co_f + it_f + """
         GROUP BY b.item_code, w.company
         ORDER BY b.item_code, value DESC""",
-        tuple(co_args), as_dict=True,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
     items = {}
@@ -161,43 +162,43 @@ def get_stock_by_item():
 
 @frappe.whitelist()
 def get_swastik_detail():
-    """Detailed Swastik reserved stock."""
-    company = _get_company()
-    co_filter = ""
-    co_args = []
-    if company != "All":
-        co_filter = "AND w.company = %s"
-        co_args = [company]
+    company, item = _get_filters()
+    co_f, co_a = _co_filter()
+    it_f, it_a = _item_filter()
 
     total = frappe.db.sql(
         """SELECT COALESCE(SUM(b.actual_qty), 0) as qty, COALESCE(SUM(b.stock_value), 0) as val
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """ + co_filter,
-        tuple(co_args), as_dict=True,
+        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """
+        + co_f + it_f,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
     by_company = frappe.db.sql(
         """SELECT w.company, SUM(b.actual_qty) as qty, SUM(b.stock_value) as val
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """ + co_filter + """
+        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """
+        + co_f + it_f + """
         GROUP BY w.company ORDER BY val DESC""",
-        tuple(co_args), as_dict=True,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
     by_item = frappe.db.sql(
         """SELECT b.item_code, SUM(b.actual_qty) as qty, SUM(b.stock_value) as val
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """ + co_filter + """
+        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """
+        + co_f + it_f + """
         GROUP BY b.item_code ORDER BY val DESC""",
-        tuple(co_args), as_dict=True,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
     detail = frappe.db.sql(
         """SELECT w.company, b.item_code, b.warehouse, b.actual_qty as qty, b.stock_value as val
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """ + co_filter + """
+        WHERE w.name LIKE 'Reserved WH - %%' AND b.actual_qty > 0 """
+        + co_f + it_f + """
         ORDER BY w.company, b.item_code""",
-        tuple(co_args), as_dict=True,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )
 
     return {
@@ -213,18 +214,15 @@ def get_swastik_detail():
 
 @frappe.whitelist()
 def get_negative_stock():
-    """Get negative stock items."""
-    company = _get_company()
-    co_filter = ""
-    co_args = []
-    if company != "All":
-        co_filter = "AND w.company = %s"
-        co_args = [company]
+    company, item = _get_filters()
+    co_f, co_a = _co_filter()
+    it_f, it_a = _item_filter()
 
     return frappe.db.sql(
         """SELECT w.company, w.name as warehouse, b.item_code, b.actual_qty, b.stock_value
         FROM `tabBin` b JOIN `tabWarehouse` w ON w.name = b.warehouse
-        WHERE b.actual_qty < 0 """ + co_filter + """
+        WHERE b.actual_qty < 0 """
+        + co_f + it_f + """
         ORDER BY b.actual_qty ASC LIMIT 20""",
-        tuple(co_args), as_dict=True,
+        tuple(co_a) + tuple(it_a), as_dict=True,
     )

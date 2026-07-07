@@ -494,20 +494,23 @@ def get_company_comparison():
     companies = ["Geeta Enterprise", "Global Export", "Shubham Enterprise"]
     result = []
     for co in companies:
+        sales_date_cond, sales_date_args = _period_condition(period, "si")
+        purchase_date_cond, purchase_date_args = _period_condition(period, "pi")
+
         sales = frappe.db.sql(
             """SELECT COALESCE(SUM(si.base_grand_total), 0) as total
             FROM `tabSales Invoice` si
             JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
-            WHERE si.docstatus = 1 AND si.company = %s """ + date_cond + it_filter,
-            (co,) + tuple(date_args) + tuple(it_args),
+            WHERE si.docstatus = 1 AND si.company = %s """ + sales_date_cond + it_filter,
+            (co,) + tuple(sales_date_args) + tuple(it_args),
             as_dict=True,
         )
         purchase = frappe.db.sql(
             """SELECT COALESCE(SUM(pi.base_grand_total), 0) as total
             FROM `tabPurchase Invoice` pi
             JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
-            WHERE pi.docstatus = 1 AND pi.company = %s """ + date_cond + _item_filter("pii")[0],
-            (co,) + tuple(date_args) + tuple(_item_filter("pii")[1]),
+            WHERE pi.docstatus = 1 AND pi.company = %s """ + purchase_date_cond + _item_filter("pii")[0],
+            (co,) + tuple(purchase_date_args) + tuple(_item_filter("pii")[1]),
             as_dict=True,
         )
         stock = frappe.db.sql(
@@ -528,12 +531,11 @@ def get_company_comparison():
     return result
 
 
-def _period_condition(period):
+def _period_condition(period, alias="si"):
     """Return date SQL condition and args for the given period."""
     from frappe.utils import add_months as _add_months
     today_dt = getdate(today())
     if period == "QTD":
-        # Current quarter start
         month = today_dt.month
         q_month = ((month - 1) // 3) * 3 + 1
         start = today_dt.replace(month=q_month, day=1)
@@ -541,4 +543,4 @@ def _period_condition(period):
         start = today_dt.replace(month=1, day=1)
     else:
         start = get_first_day(today())
-    return "AND si.posting_date >= %s", [start]
+    return f"AND {alias}.posting_date >= %s", [start]
