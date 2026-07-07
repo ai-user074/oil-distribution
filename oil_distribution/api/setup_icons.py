@@ -13,7 +13,7 @@ def execute():
                 "label": "Oil Distribution",
                 "app": "oil_distribution",
                 "icon_type": "App",
-                "link": "/app/oil-operations",
+                "link": "/app/oil-distribution",
                 "link_type": "External",
                 "logo_url": "/assets/oil_distribution/images/oil_distribution-logo.svg",
                 "hidden": 0,
