@@ -20,6 +20,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "buying",
    "indent": 0,
    "keep_closed": 0,
    "label": "Purchase Order",
@@ -31,6 +32,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "package",
    "indent": 0,
    "keep_closed": 0,
    "label": "Purchase Receipt",
@@ -42,6 +44,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "invoice",
    "indent": 0,
    "keep_closed": 0,
    "label": "Purchase Invoice",
@@ -53,6 +56,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "user",
    "indent": 0,
    "keep_closed": 0,
    "label": "Supplier",
@@ -75,6 +79,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "selling",
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Order",
@@ -86,6 +91,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "truck",
    "indent": 0,
    "keep_closed": 0,
    "label": "Delivery Note",
@@ -97,6 +103,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "invoice",
    "indent": 0,
    "keep_closed": 0,
    "label": "Sales Invoice",
@@ -108,6 +115,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "user",
    "indent": 0,
    "keep_closed": 0,
    "label": "Customer",
@@ -130,6 +138,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "retail",
    "indent": 0,
    "keep_closed": 0,
    "label": "New Transfer",
@@ -141,6 +150,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "stock",
    "indent": 0,
    "keep_closed": 0,
    "label": "Stock Reservation",
@@ -152,6 +162,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "warehouse",
    "indent": 0,
    "keep_closed": 0,
    "label": "Stock Entry",
@@ -174,6 +185,7 @@
    {
     "child": 1,
     "collapsible": 1,
+    "icon": "view-dashboard",
     "indent": 0,
     "keep_closed": 0,
     "label": "Command Center",
@@ -185,6 +197,7 @@
    {
     "child": 1,
     "collapsible": 1,
+    "icon": "chart",
     "indent": 0,
     "keep_closed": 0,
     "label": "Stock Dashboard",
@@ -196,6 +209,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "report",
    "indent": 0,
    "keep_closed": 0,
    "label": "IOCL Procurement Report",
@@ -207,6 +221,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "alert",
    "indent": 0,
    "keep_closed": 0,
    "label": "Negative Stock Report",
@@ -218,6 +233,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "balance",
    "indent": 0,
    "keep_closed": 0,
    "label": "Available Vs Reserved",
@@ -229,6 +245,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "retail",
    "indent": 0,
    "keep_closed": 0,
    "label": "Intercompany Transfer Report",
@@ -240,6 +257,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "organization",
    "indent": 0,
    "keep_closed": 0,
    "label": "Company Wise Stock",
@@ -251,6 +269,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "inventory",
    "indent": 0,
    "keep_closed": 0,
    "label": "Reserved Stock",
@@ -273,6 +292,7 @@
   {
    "child": 1,
    "collapsible": 1,
+   "icon": "settings",
    "indent": 0,
    "keep_closed": 0,
    "label": "Transfer Settings",

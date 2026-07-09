@@ -12,6 +12,25 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 
 	page.main.html(get_dashboard_html());
 
+	// Generate FY options (last 5 financial years)
+	var now = new Date();
+	var curM = now.getMonth();
+	var curYr = now.getFullYear();
+	var curFYStart = curM >= 3 ? curYr : curYr - 1;
+	var curFYValue = curFYStart + '-04-01_' + (curFYStart + 1) + '-03-31';
+	window.oz_fy = curFYValue;
+	var fyOptions = [];
+	for (var i = 0; i < 5; i++) {
+		var sy = curFYStart - i;
+		var ey = sy + 1;
+		fyOptions.push({
+			value: sy + '-04-01_' + ey + '-03-31',
+			label: 'FY ' + sy + '-' + String(ey).slice(-2),
+			abbr: sy + '-' + ey
+		});
+	}
+	window.oz_fy_options = fyOptions;
+
 	// Tabs
 	page.main.find('.oz-tab-btn').on('click', function () {
 		var tab = $(this).data('tab');
@@ -46,20 +65,36 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 		{ value: 'Global Export', label: 'Global Export', abbr: 'GEX' },
 		{ value: 'Shubham Enterprise', label: 'Shubham Enterprise', abbr: 'SHE' }
 	], function (selected) {
-		window.oz_company = selected.length === 0 ? 'All' : selected.join(',');
+		var allCo = ['Geeta Enterprise', 'Global Export', 'Shubham Enterprise'];
+		var allSelected = selected.length === 0 || selected.length === allCo.length;
+		window.oz_company = allSelected ? 'All' : selected.join(',');
+		oz_update_filter_tag();
 		load_all_data();
 	});
 
 	// Init item multi-select (empty, populated async)
 	oz_init_multi('oz-ms-item', [], function (selected) {
-		window.oz_item = selected.length === 0 ? 'All' : selected.join(',');
+		var totalItems = (window.oz_item_options || []).length;
+		var allSelected = selected.length === 0 || (totalItems > 0 && selected.length === totalItems);
+		window.oz_item = allSelected ? 'All' : selected.join(',');
+		oz_update_filter_tag();
 		load_all_data();
 	});
+
+	// Init FY multi-select (default: current FY only)
+	oz_init_multi('oz-ms-fy', window.oz_fy_options, function (selected) {
+		var allFy = window.oz_fy_options.map(function (o) { return o.value; });
+		var allSelected = selected.length === 0 || selected.length === allFy.length;
+		window.oz_fy = allSelected ? 'All' : selected.join(',');
+		oz_update_filter_tag();
+		load_all_data();
+	}, [curFYValue]);
 
 	// Populate items
 	frappe.xcall('frappe.client.get_list', { doctype: 'Item', fields: ['item_code', 'item_name'], limit_page_length: 0, order_by: 'item_code asc' }).then(function (items) {
 		if (!items) return;
 		var opts = items.map(function (item) { return { value: item.item_code, label: item.item_code + ' — ' + item.item_name }; });
+		window.oz_item_options = opts;
 		oz_update_options('oz-ms-item', opts);
 	});
 
@@ -72,15 +107,17 @@ function get_dashboard_html() {
 	<style>
 		#page-oil-command-center .page-body { padding: 0 !important; background: #f0f2f5; }
 		.oz { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 16px 20px; }
+		.page-body { overflow-y: auto !important; }
 		.oz * { box-sizing: border-box; }
 
 		.oz-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,20,40,0.04); }
 
 		/* Bar */
-		.oz-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-		.oz-bar label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; }
+		.oz-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 14px; flex-wrap: wrap; position: sticky; top: 0; }
+		.oz-bar label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; display: flex; align-items: center; line-height: 1; margin: 0; }
 		.oz-bar select { padding: 5px 26px 5px 8px; border-radius: 7px; border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; }
 		.oz-bar select:focus { outline: none; border-color: #3b82f6; }
+		.oz-filter-tag { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #eff6ff; color: #3b82f6; white-space: nowrap; }
 
 		/* Tabs */
 		.oz-tabs { display: flex; gap: 2px; margin-bottom: 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 4px; width: fit-content; }
@@ -96,6 +133,7 @@ function get_dashboard_html() {
 		/* KPI */
 		.oz-kpi-row { display: grid; gap: 10px; margin-bottom: 14px; }
 		.oz-kpi-row-3 { grid-template-columns: repeat(3, 1fr); }
+		.oz-kpi-row-2 { grid-template-columns: repeat(2, 1fr); }
 		.oz-kpi-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px; }
 		.oz-kpi-card:hover { box-shadow: 0 4px 12px rgba(0,20,40,0.08); transform: translateY(-2px); }
 		.oz-kpi-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
@@ -176,7 +214,7 @@ function get_dashboard_html() {
 		}
 		.oz-ms-btn:hover { border-color: #cbd5e1; }
 		.oz-ms-btn.oz-ms-open { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-		.oz-ms-btn .oz-ms-count { background: #3b82f6; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
+		.oz-ms-btn .oz-ms-count { background: #059669; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
 		.oz-ms-panel {
 			display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
 			min-width: 220px; max-height: 280px; overflow-y: auto;
@@ -207,19 +245,25 @@ function get_dashboard_html() {
 
 	<div class="oz">
 		<!-- FILTERS -->
-		<div class="oz-bar oz-anim" style="position:relative;z-index:100;">
+		<div class="oz-bar oz-anim">
 			<label>Company</label>
 			<div id="oz-ms-company" class="oz-ms"></div>
 			<label style="margin-left:8px;">Item</label>
 			<div id="oz-ms-item" class="oz-ms" style="min-width:200px;"></div>
-			<span id="oz-filter-tag" style="margin-left:auto;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;background:#eff6ff;color:#3b82f6;">All</span>
+			<label style="margin-left:8px;">FY</label>
+			<div id="oz-ms-fy" class="oz-ms" style="min-width:180px;"></div>
+			<div style="margin-left:auto;display:flex;gap:6px;flex-shrink:0;">
+				<span id="oz-filter-company" class="oz-filter-tag"></span>
+				<span id="oz-filter-fy" class="oz-filter-tag"></span>
+			</div>
 		</div>
 
 		<!-- TABS -->
 		<div class="oz-tabs oz-anim" style="animation-delay:0.04s">
 			<button class="oz-tab-btn oz-tab-active" data-tab="sales">Sales & Procurement</button>
 			<button class="oz-tab-btn" data-tab="stock">Stock Intelligence</button>
-			<button class="oz-tab-btn" data-tab="ict">ICT & Reservations</button>
+			<button class="oz-tab-btn" data-tab="ict">Inter Company Transfer</button>
+			<button class="oz-tab-btn" data-tab="reservations">Reservations</button>
 		</div>
 
 		<!-- ═══ PANEL 1: SALES & PROCUREMENT ═══ -->
@@ -256,12 +300,12 @@ function get_dashboard_html() {
 						<div class="oz-kpi-spark" id="oz-spark-proc"></div>
 					</div>
 				</div>
-				<div class="oz-kpi-card" onclick="frappe.set_route('List','Inter Company Transfer',{docstatus:1})">
-					<div class="oz-kpi-icon" style="background:#cffafe;color:#0891b2;">🔄</div>
+				<div class="oz-kpi-card" onclick="frappe.set_route('Profit and Loss Statement')">
+					<div class="oz-kpi-icon" id="oz-kpi-pl-icon" style="background:#fef3c7;color:#d97706;">₹</div>
 					<div class="oz-kpi-info">
-						<div class="oz-kpi-val" id="oz-kpi-ict" style="color:#0891b2;">--</div>
-						<div class="oz-kpi-lbl">ICT Volume <span style="color:#0891b2;">MTD</span></div>
-						<div class="oz-kpi-spark" id="oz-spark-ict"></div>
+						<div class="oz-kpi-val" id="oz-kpi-pl" style="color:#d97706;">--</div>
+						<div class="oz-kpi-lbl">Profit / Loss <span id="oz-period-pl" style="color:#d97706;">MTD</span></div>
+						<div class="oz-kpi-spark" id="oz-spark-pl"></div>
 					</div>
 				</div>
 			</div>
@@ -319,6 +363,7 @@ function get_dashboard_html() {
 		<!-- ═══ PANEL 2: STOCK INTELLIGENCE ═══ -->
 		<div id="oz-panel-stock" class="oz-tab-panel" style="display:none;">
 
+			<!-- KPIs + Compact Pipeline in one row -->
 			<div class="oz-kpi-row oz-kpi-row-3 oz-anim" style="animation-delay:0.06s">
 				<div class="oz-kpi-card" onclick="frappe.set_route('List','Bin',{warehouse:['like','Available WH%']})">
 					<div class="oz-kpi-icon" style="background:#ede9fe;color:#7c3aed;">📦</div>
@@ -343,39 +388,33 @@ function get_dashboard_html() {
 				</div>
 			</div>
 
-			<div class="oz-grid-7-3 oz-anim" style="animation-delay:0.1s">
-				<div class="oz-chart-card" style="margin-bottom:0;">
-					<div class="oz-chart-head">
-						<div class="oz-chart-icon" style="background:#fef2f2;color:#dc2626;">🔥</div>
-						<div><div class="oz-chart-title">Stock Pipeline</div><div class="oz-chart-sub">Available → Reserved → Alerts</div></div>
+			<!-- Compact Pipeline + Utilization + Quick Stats -->
+			<div class="oz-chart-card oz-anim" style="animation-delay:0.1s;padding:14px 18px;">
+				<div style="display:flex;align-items:center;gap:16px;">
+					<div style="flex:1;">
+						<div style="font-size:11px;font-weight:700;color:#1e293b;margin-bottom:8px;">Stock Pipeline</div>
+						<div id="oz-funnel-content"></div>
 					</div>
-					<div id="oz-funnel-content"></div>
-				</div>
-				<div style="display:flex;flex-direction:column;gap:12px;">
-					<div class="oz-chart-card" style="margin-bottom:0;flex:1;">
-						<div class="oz-chart-head">
-							<div class="oz-chart-icon" style="background:#dbeafe;color:#3b82f6;">⏱</div>
-							<div><div class="oz-chart-title">Utilization</div></div>
-						</div>
+					<div style="width:1px;height:80px;background:#f1f5f9;"></div>
+					<div style="text-align:center;min-width:80px;">
 						<div id="oz-ring" style="display:flex;justify-content:center;"></div>
+						<div style="font-size:8px;font-weight:700;color:#94a3b8;margin-top:2px;">Utilization</div>
 					</div>
-					<div class="oz-chart-card" style="margin-bottom:0;">
-						<div class="oz-chart-head">
-							<div class="oz-chart-icon" style="background:#ecfdf5;color:#059669;">⚡</div>
-							<div><div class="oz-chart-title">Quick Stats</div></div>
-						</div>
+					<div style="width:1px;height:80px;background:#f1f5f9;"></div>
+					<div style="min-width:140px;">
 						<div id="oz-mini-stats"></div>
 					</div>
 				</div>
 			</div>
 
+			<!-- Donut + Negative Alerts -->
 			<div class="oz-grid-2 oz-anim" style="animation-delay:0.14s">
 				<div class="oz-chart-card" style="margin-bottom:0;">
 					<div class="oz-chart-head">
 						<div class="oz-chart-icon" style="background:#ede9fe;color:#7c3aed;">💡</div>
-						<div><div class="oz-chart-title">Stock Distribution</div><div class="oz-chart-sub">By company</div></div>
+						<div><div class="oz-chart-title">Stock Distribution</div><div class="oz-chart-sub">Hover segments for details · Click legend to highlight</div></div>
 					</div>
-					<div id="oz-chart-donut" style="display:flex;justify-content:center;"></div>
+					<div id="oz-chart-donut"></div>
 				</div>
 				<div class="oz-chart-card" style="margin-bottom:0;">
 					<div class="oz-chart-head">
@@ -397,9 +436,10 @@ function get_dashboard_html() {
 			</div>
 		</div>
 
-		<!-- ═══ PANEL 3: ICT & RESERVATIONS ═══ -->
+		<!-- ═══ PANEL 3: ICT ═══ -->
 		<div id="oz-panel-ict" class="oz-tab-panel" style="display:none;">
 
+			<!-- ICT KPIs Row 1: Volume, Count, Value -->
 			<div class="oz-kpi-row oz-kpi-row-3 oz-anim" style="animation-delay:0.06s">
 				<div class="oz-kpi-card" onclick="frappe.set_route('List','Inter Company Transfer',{docstatus:1})">
 					<div class="oz-kpi-icon" style="background:#cffafe;color:#0891b2;">🔄</div>
@@ -408,6 +448,66 @@ function get_dashboard_html() {
 						<div class="oz-kpi-lbl">ICT Volume MTD</div>
 					</div>
 				</div>
+				<div class="oz-kpi-card" onclick="frappe.set_route('List','Inter Company Transfer',{docstatus:1})">
+					<div class="oz-kpi-icon" style="background:#cffafe;color:#0891b2;">📋</div>
+					<div class="oz-kpi-info">
+						<div class="oz-kpi-val" id="oz-kpi-ict-count" style="color:#0891b2;">--</div>
+						<div class="oz-kpi-lbl">ICT Count MTD</div>
+					</div>
+				</div>
+				<div class="oz-kpi-card" onclick="frappe.set_route('List','Inter Company Transfer',{docstatus:1})">
+					<div class="oz-kpi-icon" style="background:#cffafe;color:#0891b2;">💰</div>
+					<div class="oz-kpi-info">
+						<div class="oz-kpi-val" id="oz-kpi-ict-val" style="color:#0891b2;">--</div>
+						<div class="oz-kpi-lbl">ICT Value MTD</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Routes Breakdown -->
+			<div class="oz-chart-card oz-anim" style="animation-delay:0.1s;">
+				<div class="oz-chart-head">
+					<div class="oz-chart-icon" style="background:#f0fdf4;color:#16a34a;">🔀</div>
+					<div><div class="oz-chart-title">Routes Breakdown</div><div class="oz-chart-sub">Transfers between companies</div></div>
+				</div>
+				<div id="oz-routes-breakdown"></div>
+			</div>
+
+
+			<!-- ICT Chain Visualization -->
+			<div class="oz-chart-card oz-anim" style="animation-delay:0.12s">
+				<div class="oz-chart-head">
+					<div class="oz-chart-icon" style="background:#cffafe;color:#0891b2;">🔗</div>
+					<div style="flex:1;"><div class="oz-chart-title">ICT Chain Detail</div><div class="oz-chart-sub">Transfer items and status</div></div>
+				</div>
+				<div id="oz-ict-chain"></div>
+			</div>
+
+			<!-- ICT Table -->
+			<div class="oz-chart-card oz-anim" style="animation-delay:0.14s">
+				<div class="oz-chart-head">
+					<div class="oz-chart-icon" style="background:#cffafe;color:#0891b2;">🔄</div>
+					<div style="flex:1;"><div class="oz-chart-title">Recent Transfers</div></div>
+					<a class="oz-link" onclick="frappe.set_route('List','Inter Company Transfer')">View All →</a>
+				</div>
+				<div id="oz-table-ict"></div>
+			</div>
+
+			<!-- Activity Feed -->
+			<div class="oz-chart-card oz-anim" style="animation-delay:0.18s">
+				<div class="oz-chart-head">
+					<div class="oz-chart-icon" style="background:#ede9fe;color:#7c3aed;">☁</div>
+					<div><div class="oz-chart-title">Activity Feed</div></div>
+				</div>
+				<div id="oz-activity"></div>
+			</div>
+		</div>
+
+		<!-- ═══ PANEL: RESERVATIONS ═══ -->
+		<div id="oz-panel-reservations" class="oz-tab-panel" style="display:none;">
+
+			<!-- Reservations KPIs Row 1 -->
+			<div class="oz-kpi-row oz-kpi-row-3 oz-anim" style="animation-delay:0.06s">
 				<div class="oz-kpi-card" onclick="frappe.set_route('List','Stock Reservation',{status:'Reserved'})">
 					<div class="oz-kpi-icon" style="background:#fef3c7;color:#d97706;">🔒</div>
 					<div class="oz-kpi-info">
@@ -422,44 +522,57 @@ function get_dashboard_html() {
 						<div class="oz-kpi-lbl">Reserved Quantity</div>
 					</div>
 				</div>
+				<div class="oz-kpi-card" onclick="frappe.set_route('List','Stock Reservation',{status:'Reserved'})">
+					<div class="oz-kpi-icon" style="background:#d1fae5;color:#059669;">💰</div>
+					<div class="oz-kpi-info">
+						<div class="oz-kpi-val" id="oz-kpi-res-val" style="color:#059669;">--</div>
+						<div class="oz-kpi-lbl">Reserved Value</div>
+					</div>
+				</div>
 			</div>
 
-			<!-- Reservations -->
+			<!-- Reservations KPIs Row 2 -->
+			<div class="oz-kpi-row oz-kpi-row-3 oz-anim" style="animation-delay:0.08s">
+				<div class="oz-kpi-card">
+					<div class="oz-kpi-icon" style="background:#dbeafe;color:#3b82f6;">📦</div>
+					<div class="oz-kpi-info">
+						<div class="oz-kpi-val" id="oz-kpi-res-items" style="color:#3b82f6;">--</div>
+						<div class="oz-kpi-lbl">Reserved Items</div>
+					</div>
+				</div>
+				<div class="oz-kpi-card">
+					<div class="oz-kpi-icon" style="background:#fce7f3;color:#db2777;">📈</div>
+					<div class="oz-kpi-info">
+						<div class="oz-kpi-val" id="oz-kpi-res-util" style="color:#db2777;">--</div>
+						<div class="oz-kpi-lbl">Utilization</div>
+					</div>
+				</div>
+				<div class="oz-kpi-card">
+					<div class="oz-kpi-icon" style="background:#ecfeff;color:#0891b2;">🏢</div>
+					<div class="oz-kpi-info">
+						<div class="oz-kpi-val" id="oz-kpi-res-companies" style="color:#0891b2;">--</div>
+						<div class="oz-kpi-lbl">Companies</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Reserved by Company -->
 			<div class="oz-chart-card oz-anim" style="animation-delay:0.1s">
+				<div class="oz-chart-head">
+					<div class="oz-chart-icon" style="background:#fef3c7;color:#d97706;">🏢</div>
+					<div><div class="oz-chart-title">Reserved by Company</div><div class="oz-chart-sub">Stock reserved per company</div></div>
+				</div>
+				<div id="oz-res-by-company"></div>
+			</div>
+
+			<!-- Reservations Table -->
+			<div class="oz-chart-card oz-anim" style="animation-delay:0.12s">
 				<div class="oz-chart-head">
 					<div class="oz-chart-icon" style="background:#fef3c7;color:#d97706;">🛡</div>
 					<div style="flex:1;"><div class="oz-chart-title">Active Reservations</div><div class="oz-chart-sub">Swastik reserved stock</div></div>
 					<a class="oz-link" onclick="frappe.set_route('List','Stock Reservation',{status:'Reserved'})">View All →</a>
 				</div>
 				<div id="oz-table-res"></div>
-			</div>
-
-			<!-- ICT Chain Visualization -->
-			<div class="oz-chart-card oz-anim" style="animation-delay:0.14s">
-				<div class="oz-chart-head">
-					<div class="oz-chart-icon" style="background:#cffafe;color:#0891b2;">🔗</div>
-					<div style="flex:1;"><div class="oz-chart-title">ICT Chain Detail</div><div class="oz-chart-sub">Transfer items and status</div></div>
-				</div>
-				<div id="oz-ict-chain"></div>
-			</div>
-
-			<!-- ICT Table -->
-			<div class="oz-chart-card oz-anim" style="animation-delay:0.18s">
-				<div class="oz-chart-head">
-					<div class="oz-chart-icon" style="background:#cffafe;color:#0891b2;">🔄</div>
-					<div style="flex:1;"><div class="oz-chart-title">Recent Transfers</div></div>
-					<a class="oz-link" onclick="frappe.set_route('List','Inter Company Transfer')">View All →</a>
-				</div>
-				<div id="oz-table-ict"></div>
-			</div>
-
-			<!-- Activity Feed -->
-			<div class="oz-chart-card oz-anim" style="animation-delay:0.22s">
-				<div class="oz-chart-head">
-					<div class="oz-chart-icon" style="background:#ede9fe;color:#7c3aed;">☁</div>
-					<div><div class="oz-chart-title">Activity Feed</div></div>
-				</div>
-				<div id="oz-activity"></div>
 			</div>
 		</div>
 
@@ -468,10 +581,10 @@ function get_dashboard_html() {
 
 /* ═══════════ MULTI-SELECT COMPONENT ═══════════ */
 
-function oz_init_multi(containerId, options, onChange) {
+function oz_init_multi(containerId, options, onChange, defaultSelected) {
 	var container = document.getElementById(containerId);
 	if (!container) return;
-	container._selected = [];
+	container._selected = defaultSelected || options.map(function (o) { return o.value; });
 	container._options = options;
 	container._onChange = onChange;
 
@@ -484,9 +597,10 @@ function oz_init_multi(containerId, options, onChange) {
 	panel.className = 'oz-ms-panel';
 	container.appendChild(panel);
 
-	// Close on outside click
+	// Close on outside click (blocked if no item selected)
 	document.addEventListener('click', function (e) {
 		if (!container.contains(e.target)) {
+			if (container._selected.length === 0) return;
 			panel.classList.remove('oz-ms-show');
 			btn.classList.remove('oz-ms-open');
 		}
@@ -506,6 +620,7 @@ function oz_init_multi(containerId, options, onChange) {
 	});
 
 	oz_render_ms_panel(container);
+	oz_update_ms_btn(container);
 }
 
 function oz_render_ms_panel(container) {
@@ -518,6 +633,7 @@ function oz_render_ms_panel(container) {
 	html += '<button class="oz-ms-action" data-action="all">Select All</button>';
 	html += '<button class="oz-ms-action" data-action="clear">Clear</button>';
 	html += '</div>';
+	html += '<div class="oz-ms-error" style="display:none;text-align:center;padding:8px;color:#dc2626;font-size:10px;font-weight:600;">Select at least one element</div>';
 
 	options.forEach(function (opt) {
 		var checked = selected.indexOf(opt.value) !== -1 ? 'checked' : '';
@@ -557,6 +673,10 @@ function oz_render_ms_panel(container) {
 			}
 			oz_update_ms_btn(container);
 			oz_render_ms_panel(container);
+			if (action !== 'all' && container._selected.length === 0) {
+				var errEl = panel.querySelector('.oz-ms-error');
+				if (errEl) errEl.style.display = 'block';
+			}
 			if (container._onChange) container._onChange(container._selected);
 		});
 	});
@@ -568,9 +688,19 @@ function oz_render_ms_panel(container) {
 			if (this.checked) {
 				if (container._selected.indexOf(val) === -1) container._selected.push(val);
 			} else {
+				if (container._selected.length <= 1) {
+					this.checked = true;
+					var lbl = this.closest('.oz-ms-opt');
+					if (lbl) {
+						lbl.style.background = '#fee2e2';
+						setTimeout(function () { lbl.style.background = ''; }, 1200);
+					}
+					return;
+				}
 				container._selected = container._selected.filter(function (v) { return v !== val; });
 			}
 			oz_update_ms_btn(container);
+			oz_render_ms_panel(container);
 			if (container._onChange) container._onChange(container._selected);
 		});
 	});
@@ -580,16 +710,14 @@ function oz_update_ms_btn(container) {
 	var btn = container.querySelector('.oz-ms-btn');
 	var sel = container._selected;
 	var opts = container._options || [];
-	if (sel.length === 0) {
+	if (sel.length === 0 || sel.length === opts.length) {
 		btn.innerHTML = 'All';
-	} else if (sel.length <= 2) {
-		var labels = sel.map(function (v) {
-			var opt = opts.find(function (o) { return o.value === v; });
-			return opt ? (opt.abbr || opt.label || v) : v;
-		});
-		btn.innerHTML = labels.join(', ') + ' <span class="oz-ms-count">' + sel.length + '</span>';
+	} else if (sel.length === 1) {
+		var opt = opts.find(function (o) { return o.value === sel[0]; });
+		var label = opt ? (opt.abbr || opt.label || sel[0]) : sel[0];
+		btn.innerHTML = label + ' <span class="oz-ms-count">' + sel.length + '</span>';
 	} else {
-		btn.innerHTML = sel.length + ' selected <span class="oz-ms-count">' + sel.length + '</span>';
+		btn.innerHTML = 'Selected ' + sel.length + ' <span class="oz-ms-count">' + sel.length + '</span>';
 	}
 }
 
@@ -597,12 +725,10 @@ function oz_update_options(containerId, options) {
 	var container = document.getElementById(containerId);
 	if (!container) return;
 	container._options = options;
-	container._selected = [];
+	container._selected = options.map(function (o) { return o.value; });
 	oz_update_ms_btn(container);
-	// If panel is open, re-render
-	if (container.querySelector('.oz-ms-panel').classList.contains('oz-ms-show')) {
-		oz_render_ms_panel(container);
-	}
+	oz_render_ms_panel(container);
+	if (container._onChange) container._onChange(container._selected);
 }
 
 /* ═══════════ UTILITIES ═══════════ */
@@ -729,27 +855,120 @@ function oz_build_bar_chart(container, tooltip, labels, sales, purchase) {
 /* ═══════════ SVG CHARTS ═══════════ */
 
 function oz_donut(el, data, size) {
-	size = size || 130;
+	size = size || 160;
 	var total = data.reduce(function (s, d) { return s + d.value; }, 0);
 	if (total === 0) { el.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">No data</div>'; return; }
-	var r = (size - 16) / 2, c = 2 * Math.PI * r, ct = size / 2, cum = 0;
-	var s = '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;">';
-	s += '<svg width="' + size + '" height="' + size + '" style="transform:rotate(-90deg);">';
-	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="14"/>';
-	data.forEach(function (item) {
-		var pct = item.value / total, adj = Math.max(0, pct - 0.02);
-		var dash = c * adj + ' ' + (c * (1 - adj)), off = -c * cum;
+
+	var r = (size - 20) / 2, circ = 2 * Math.PI * r, ct = size / 2;
+	var cum = 0;
+	var uid = 'donut-' + Math.random().toString(36).substr(2, 6);
+
+	// Build segments with gaps
+	var segs = data.map(function (item) {
+		var pct = item.value / total;
+		var seg = { label: item.label, value: item.value, color: item.color, pct: pct, cum: cum };
 		cum += pct;
-		s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="' + item.color + '" stroke-width="14" stroke-dasharray="' + dash + '" stroke-dashoffset="' + off + '" stroke-linecap="round"><title>' + item.label + ': ' + item.value.toLocaleString() + '</title></circle>';
+		return seg;
 	});
+
+	var s = '<div style="display:flex;align-items:center;gap:20px;justify-content:center;">';
+
+	// SVG donut
+	s += '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;">';
+	s += '<svg width="' + size + '" height="' + size + '" style="transform:rotate(-90deg);" id="' + uid + '-svg">';
+
+	// Background circle
+	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="20"/>';
+
+	// Segments with gap
+	var gapPct = 0.015; // gap between segments
+	segs.forEach(function (seg, i) {
+		var adj = Math.max(0, seg.pct - gapPct);
+		var dash = circ * adj;
+		var gap = circ * (seg.pct - adj);
+		var offset = -circ * seg.cum;
+		s += '<circle class="oz-donut-seg" data-idx="' + i + '" cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="' + seg.color + '" stroke-width="20" stroke-dasharray="' + dash + ' ' + (circ - dash) + '" stroke-dashoffset="' + offset + '" stroke-linecap="round" style="transition:stroke-width 0.2s, opacity 0.2s;cursor:pointer;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.08));">';
+		s += '<title>' + seg.label + ': ' + oz_n(seg.value) + ' (' + Math.round(seg.pct * 100) + '%)</title></circle>';
+	});
+
 	s += '</svg>';
-	s += '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:18px;font-weight:800;color:#1e293b;">' + total.toLocaleString() + '</span><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#94a3b8;">Total</span></div></div>';
-	s += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:center;">';
-	data.forEach(function (item) {
-		s += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:' + item.color + ';"></div><span style="font-size:9px;font-weight:600;color:#64748b;">' + item.label + '</span><span style="font-size:9px;font-weight:700;color:' + item.color + ';">' + oz_n(item.value) + '</span></div>';
+
+	// Center text
+	s += '<div id="' + uid + '-center" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">';
+	s += '<span style="font-size:22px;font-weight:800;color:#1e293b;">' + total.toLocaleString() + '</span>';
+	s += '<span style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Total</span>';
+	s += '</div></div>';
+
+	// Interactive legend
+	s += '<div id="' + uid + '-legend" style="display:flex;flex-direction:column;gap:6px;">';
+	segs.forEach(function (seg, i) {
+		var pctStr = Math.round(seg.pct * 100) + '%';
+		s += '<div class="oz-donut-leg" data-idx="' + i + '" style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;">';
+		s += '<div style="width:10px;height:10px;border-radius:3px;background:' + seg.color + ';flex-shrink:0;transition:transform 0.2s;"></div>';
+		s += '<div style="flex:1;min-width:0;">';
+		s += '<div style="font-size:10px;font-weight:700;color:#1e293b;">' + seg.label + '</div>';
+		s += '<div style="font-size:9px;color:#94a3b8;">' + oz_n(seg.value) + ' (' + pctStr + ')</div>';
+		s += '</div>';
+		s += '<div style="width:40px;height:4px;border-radius:4px;background:#f1f5f9;overflow:hidden;">';
+		s += '<div style="height:100%;width:' + (seg.pct * 100) + '%;background:' + seg.color + ';border-radius:4px;"></div>';
+		s += '</div></div>';
 	});
-	s += '</div>';
+	s += '</div></div>';
+
 	el.innerHTML = s;
+
+	// Interactivity
+	var svg = document.getElementById(uid + '-svg');
+	var legend = document.getElementById(uid + '-legend');
+	var center = document.getElementById(uid + '-center');
+	var segs_el = svg.querySelectorAll('.oz-donut-seg');
+	var leg_items = legend.querySelectorAll('.oz-donut-leg');
+
+	function highlight(idx) {
+		segs_el.forEach(function (c, i) {
+			if (idx === null) {
+				c.style.strokeWidth = '20';
+				c.style.opacity = '1';
+			} else if (i === idx) {
+				c.style.strokeWidth = '26';
+				c.style.opacity = '1';
+			} else {
+				c.style.strokeWidth = '16';
+				c.style.opacity = '0.35';
+			}
+		});
+		leg_items.forEach(function (l, i) {
+			if (idx === null) {
+				l.style.borderColor = 'transparent';
+				l.style.background = 'transparent';
+			} else if (i === idx) {
+				l.style.borderColor = segs[i].color;
+				l.style.background = segs[i].color + '08';
+			} else {
+				l.style.borderColor = 'transparent';
+				l.style.background = 'transparent';
+			}
+		});
+		if (idx !== null) {
+			center.innerHTML = '<span style="font-size:20px;font-weight:800;color:' + segs[idx].color + ';">' + Math.round(segs[idx].pct * 100) + '%</span><span style="font-size:8px;font-weight:700;color:#94a3b8;">' + segs[idx].label + '</span>';
+		} else {
+			center.innerHTML = '<span style="font-size:22px;font-weight:800;color:#1e293b;">' + total.toLocaleString() + '</span><span style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Total</span>';
+		}
+	}
+
+	segs_el.forEach(function (c) {
+		c.addEventListener('mouseenter', function () { highlight(parseInt(this.getAttribute('data-idx'))); });
+		c.addEventListener('mouseleave', function () { highlight(null); });
+	});
+
+	leg_items.forEach(function (l) {
+		l.addEventListener('mouseenter', function () { highlight(parseInt(this.getAttribute('data-idx'))); });
+		l.addEventListener('mouseleave', function () { highlight(null); });
+		l.addEventListener('click', function () {
+			var idx = parseInt(this.getAttribute('data-idx'));
+			frappe.set_route('List', 'Bin', { company: data[idx].label });
+		});
+	});
 }
 
 function oz_ring(el, pct, c1, c2, sz) {
@@ -765,6 +984,54 @@ function oz_ring(el, pct, c1, c2, sz) {
 	el.innerHTML = s;
 }
 
+/* ═══════════ FILTER TAG ═══════════ */
+
+function oz_update_filter_tag() {
+	var co = window.oz_company || 'All';
+	var fy = window.oz_fy || 'All';
+
+	// Company badge
+	var coTag = document.getElementById('oz-filter-company');
+	if (coTag) {
+		if (co === 'All') {
+			coTag.textContent = 'All Companies';
+			coTag.style.background = '#eff6ff';
+			coTag.style.color = '#3b82f6';
+		} else {
+			var coLabel = co.split(',').map(function (c) {
+				var m = { 'Geeta Enterprise': 'GE', 'Global Export': 'GEX', 'Shubham Enterprise': 'SHE' };
+				return m[c] || c;
+			}).join(', ');
+			coTag.textContent = coLabel;
+			coTag.style.background = '#ecfdf5';
+			coTag.style.color = '#059669';
+		}
+	}
+
+	// FY badge
+	var fyTag = document.getElementById('oz-filter-fy');
+	if (fyTag) {
+		if (fy === 'All') {
+			fyTag.textContent = 'All FY';
+			fyTag.style.background = '#eff6ff';
+			fyTag.style.color = '#3b82f6';
+		} else {
+			var fyLabel = fy.split(',').map(function (f) {
+				var parts = f.split('_');
+				if (parts.length === 2) {
+					var sy = parts[0].split('-')[0];
+					var ey = parts[1].split('-')[0];
+					return 'FY ' + sy + '-' + String(ey).slice(-2);
+				}
+				return f;
+			}).join(', ');
+			fyTag.textContent = fyLabel;
+			fyTag.style.background = '#fef3c7';
+			fyTag.style.color = '#d97706';
+		}
+	}
+}
+
 /* ═══════════ DATA LOADING ═══════════ */
 
 function load_all_data() {
@@ -773,21 +1040,16 @@ function load_all_data() {
 	var period = window.oz_period;
 	var months = window.oz_months;
 
-	var tag = document.getElementById('oz-filter-tag');
-	var parts = [];
-	if (co !== 'All') parts.push(co);
-	if (item !== 'All') parts.push(item);
-	if (parts.length === 0) { tag.textContent = 'All'; tag.style.background = '#eff6ff'; tag.style.color = '#3b82f6'; }
-	else { tag.textContent = parts.join(' · '); tag.style.background = '#ecfdf5'; tag.style.color = '#059669'; }
+	oz_update_filter_tag();
 
 	// Update period labels
-	$('#oz-period-sales,#oz-period-proc').text(period);
+			$('#oz-period-sales,#oz-period-proc,#oz-period-pl').text(period);
 
-	$('#oz-kpi-sales,#oz-kpi-proc,#oz-kpi-avail,#oz-kpi-reserved,#oz-kpi-neg,#oz-kpi-ict,#oz-kpi-ict2,#oz-kpi-reserved2,#oz-kpi-resqty').text('--');
-	$('#oz-bar-chart,#oz-monthly-table,#oz-chart-donut,#oz-funnel-content,#oz-ring,#oz-mini-stats,#oz-table-res,#oz-table-ict,#oz-table-neg,#oz-activity,#oz-top-items,#oz-top-customers,#oz-company-compare,#oz-ict-chain,#oz-warehouse-table').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">Loading...</div>');
-	$('#oz-spark-sales,#oz-spark-proc,#oz-spark-ict').html('');
+			$('#oz-kpi-sales,#oz-kpi-proc,#oz-kpi-avail,#oz-kpi-reserved,#oz-kpi-neg,#oz-kpi-pl,#oz-kpi-ict2,#oz-kpi-ict-count,#oz-kpi-ict-val,#oz-kpi-reserved2,#oz-kpi-resqty,#oz-kpi-res-val,#oz-kpi-res-items,#oz-kpi-res-util,#oz-kpi-res-companies').text('--');
+			$('#oz-bar-chart,#oz-monthly-table,#oz-chart-donut,#oz-funnel-content,#oz-ring,#oz-mini-stats,#oz-table-res,#oz-table-ict,#oz-table-neg,#oz-activity,#oz-top-items,#oz-top-customers,#oz-company-compare,#oz-ict-chain,#oz-warehouse-table,#oz-routes-breakdown,#oz-routes-breakdown,#oz-res-by-company').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">Loading...</div>');
+			$('#oz-spark-sales,#oz-spark-proc,#oz-spark-pl').html('');
 
-	var args = { company: co, item: item };
+	var args = { company: co, item: item, fy: window.oz_fy || 'All', period: period };
 
 	/* ── KPIs ── */
 	frappe.call({
@@ -801,8 +1063,14 @@ function load_all_data() {
 			setTimeout(function () { document.getElementById('oz-kpi-sales').textContent = oz_k(d.sales_mtd); }, 1300);
 			oz_count(document.getElementById('oz-kpi-proc'), Math.round(d.procurement_mtd), '₹', '');
 			setTimeout(function () { document.getElementById('oz-kpi-proc').textContent = oz_k(d.procurement_mtd); }, 1300);
-			oz_count(document.getElementById('oz-kpi-ict'), Math.round(d.intercompany_volume), '', ' L');
-			setTimeout(function () { document.getElementById('oz-kpi-ict').textContent = oz_n(d.intercompany_volume) + ' L'; }, 1300);
+
+			var plColor = d.profit_loss >= 0 ? '#059669' : '#dc2626';
+			var plBg = d.profit_loss >= 0 ? '#d1fae5' : '#fee2e2';
+			document.getElementById('oz-kpi-pl').style.color = plColor;
+			document.getElementById('oz-kpi-pl-icon').style.background = plBg;
+			document.getElementById('oz-kpi-pl-icon').style.color = plColor;
+			oz_count(document.getElementById('oz-kpi-pl'), Math.round(d.profit_loss), '₹', '');
+			setTimeout(function () { document.getElementById('oz-kpi-pl').textContent = oz_k(d.profit_loss); }, 1300);
 			oz_count(document.getElementById('oz-kpi-avail'), Math.round(d.available_stock), '', ' L');
 			setTimeout(function () { document.getElementById('oz-kpi-avail').textContent = oz_n(d.available_stock) + ' L'; }, 1300);
 			oz_count(document.getElementById('oz-kpi-reserved'), Math.round(d.reserved_stock), '', ' L');
@@ -812,23 +1080,46 @@ function load_all_data() {
 			oz_count(document.getElementById('oz-kpi-ict2'), Math.round(d.intercompany_volume), '', ' L');
 			setTimeout(function () { document.getElementById('oz-kpi-ict2').textContent = oz_n(d.intercompany_volume) + ' L'; }, 1300);
 
-			// Funnel
+			// Funnel - compact horizontal
 			var tot = d.available_stock + d.reserved_stock;
-			var fh = '';
+			var fh = '<div style="display:flex;flex-direction:column;gap:6px;">';
 			[
-				{ l: 'Total Stock', v: tot, c: '#3b82f6', p: 100 },
+				{ l: 'Total', v: tot, c: '#3b82f6', p: 100 },
 				{ l: 'Available', v: d.available_stock, c: '#10b981', p: tot > 0 ? (d.available_stock / tot) * 100 : 0 },
-				{ l: 'Swastik Reserved', v: d.reserved_stock, c: '#f59e0b', p: tot > 0 ? (d.reserved_stock / tot) * 100 : 0 },
-				{ l: 'Negative Bins', v: d.negative_alerts, c: '#ef4444', p: tot > 0 ? (d.negative_alerts / tot) * 100 : 0 }
+				{ l: 'Reserved', v: d.reserved_stock, c: '#f59e0b', p: tot > 0 ? (d.reserved_stock / tot) * 100 : 0 },
+				{ l: 'Negative', v: d.negative_alerts, c: '#ef4444', p: tot > 0 ? (d.negative_alerts / tot) * 100 : 0 }
 			].forEach(function (s) {
-				fh += '<div style="margin-bottom:10px;">';
-				fh += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
-				fh += '<span style="font-size:10px;font-weight:700;color:#64748b;">' + s.l + '</span>';
-				fh += '<div style="display:flex;align-items:center;gap:6px;">';
-				fh += '<span style="font-size:14px;font-weight:800;color:' + s.c + ';">' + s.v.toLocaleString() + '</span>';
-				fh += '<span class="oz-badge" style="color:' + s.c + ';background:' + s.c + '12;">' + Math.round(s.p) + '%</span></div></div>';
-				fh += '<div class="oz-funnel-bar"><div class="oz-funnel-fill" style="width:' + s.p + '%;background:linear-gradient(90deg,' + s.c + ',' + s.c + 'aa);"></div></div></div>';
+				fh += '<div style="display:flex;align-items:center;gap:8px;">';
+				fh += '<span style="font-size:9px;font-weight:700;color:#64748b;width:52px;flex-shrink:0;">' + s.l + '</span>';
+				fh += '<div style="flex:1;height:5px;border-radius:5px;background:#f1f5f9;overflow:hidden;">';
+				fh += '<div style="height:100%;width:' + s.p + '%;border-radius:5px;background:' + s.c + ';transition:width 0.8s cubic-bezier(0.22,1,0.36,1);"></div></div>';
+				fh += '<span style="font-size:10px;font-weight:800;color:' + s.c + ';min-width:40px;text-align:right;">' + s.v.toLocaleString() + '</span>';
+				fh += '<span style="font-size:8px;font-weight:700;color:' + s.c + ';min-width:28px;text-align:right;">' + Math.round(s.p) + '%</span>';
+				fh += '</div>';
 			});
+			fh += '</div>';
+			// ICT extended KPIs
+			if (d.ict_count_mtd !== undefined) {
+				var ictCountEl = document.getElementById('oz-kpi-ict-count');
+				if (ictCountEl) { oz_count(ictCountEl, d.ict_count_mtd, '', ''); setTimeout(function () { ictCountEl.textContent = d.ict_count_mtd; }, 1300); }
+				var ictValEl = document.getElementById('oz-kpi-ict-val');
+				if (ictValEl) { oz_count(ictValEl, Math.round(d.ict_value_mtd), '₹', ''); setTimeout(function () { ictValEl.textContent = oz_k(d.ict_value_mtd); }, 1300); }
+			}
+			// Reservation extended KPIs
+			if (d.reserved_value !== undefined) {
+				var resValEl = document.getElementById('oz-kpi-res-val');
+				if (resValEl) { oz_count(resValEl, Math.round(d.reserved_value), '₹', ''); setTimeout(function () { resValEl.textContent = oz_k(d.reserved_value); }, 1300); }
+				var resItemsEl = document.getElementById('oz-kpi-res-items');
+				if (resItemsEl) { oz_count(resItemsEl, d.reserved_items, '', ''); setTimeout(function () { resItemsEl.textContent = d.reserved_items; }, 1300); }
+				var resUtilEl = document.getElementById('oz-kpi-res-util');
+				if (resUtilEl) { oz_count(resUtilEl, d.utilization_pct, '', '%'); setTimeout(function () { resUtilEl.textContent = d.utilization_pct + '%'; }, 1300); }
+				var resCompEl = document.getElementById('oz-kpi-res-companies');
+				if (resCompEl && d.reserved_by_company) { oz_count(resCompEl, d.reserved_by_company.length, '', ''); setTimeout(function () { resCompEl.textContent = d.reserved_by_company.length; }, 1300); }
+			}
+			// Reserved by company
+			if (d.reserved_by_company) { oz_render_reserved_by_company(d.reserved_by_company); }
+			// Routes breakdown
+			if (d.routes_breakdown) { oz_render_routes_breakdown(d.routes_breakdown); }
 			$('#oz-funnel-content').html(fh);
 
 			oz_ring(document.getElementById('oz-ring'), tot > 0 ? (d.reserved_stock / tot) * 100 : 0, '#3b82f6', '#7c3aed');
@@ -1011,25 +1302,46 @@ function load_all_data() {
 		args: args,
 		callback: function (r) {
 			if (!r.message || !r.message.length) { $('#oz-ict-chain').html('<div style="text-align:center;padding:20px;color:#94a3b8;">No ICT data</div>'); return; }
+			var data = r.message;
+			function oz_ict_row(row) {
+				var s = '<div style="border:1px solid #f1f5f9;border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.15s;"';
+				s += ' onmouseenter="this.style.borderColor=\'#bfdbfe\'" onmouseleave="this.style.borderColor=\'#f1f5f9\'"';
+				s += ' onclick="frappe.set_route(\'Form\',\'Inter Company Transfer\',\'' + row.name + '\')">';
+				s += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+				s += '<span style="font-weight:700;color:#0891b2;font-size:11px;">' + row.name + '</span>';
+				s += '<span class="oz-badge" style="color:#059669;background:#ecfdf5;">' + oz_k(row.grand_total) + '</span></div>';
+				s += '<div class="oz-chain">';
+				s += '<span class="oz-chain-step oz-chain-active">' + (row.company || '') + '</span>';
+				s += '<span class="oz-chain-arrow">→</span>';
+				s += '<span class="oz-chain-step oz-chain-active">' + (row.to_company || '') + '</span>';
+				s += '<span style="margin-left:auto;font-size:9px;color:#94a3b8;">' + (row.item_list || row.items || '') + '</span></div>';
+				s += '<div style="display:flex;gap:12px;font-size:9px;color:#94a3b8;margin-top:4px;">';
+				s += '<span>' + oz_n(row.total_qty) + ' L</span>';
+				s += '<span>' + (row.item_count || 0) + ' items</span>';
+				s += '<span>' + frappe.datetime.str_to_user(row.posting_date) + '</span>';
+				s += '<span class="oz-badge" style="color:#0891b2;background:#ecfeff;">' + (row.status || '') + '</span></div>';
+				s += '</div>';
+				return s;
+			}
+			var top3 = data.slice(0, 3);
+			var rest = data.slice(3);
 			var h = '';
-			r.message.forEach(function (row) {
-				h += '<div style="border:1px solid #f1f5f9;border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.borderColor=\'#bfdbfe\'" onmouseleave="this.style.borderColor=\'#f1f5f9\'" onclick="frappe.set_route(\'Form\',\'Inter Company Transfer\',\'' + row.name + '\')">';
-				h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-				h += '<span style="font-weight:700;color:#0891b2;font-size:11px;">' + row.name + '</span>';
-				h += '<span class="oz-badge" style="color:#059669;background:#ecfdf5;">' + oz_k(row.grand_total) + '</span></div>';
-				h += '<div class="oz-chain">';
-				h += '<span class="oz-chain-step oz-chain-active">' + (row.company || '') + '</span>';
-				h += '<span class="oz-chain-arrow">→</span>';
-				h += '<span class="oz-chain-step oz-chain-active">' + (row.to_company || '') + '</span>';
-				h += '<span style="margin-left:auto;font-size:9px;color:#94a3b8;">' + (row.items || '') + '</span></div>';
-				h += '<div style="display:flex;gap:12px;font-size:9px;color:#94a3b8;margin-top:4px;">';
-				h += '<span>' + oz_n(row.total_qty) + ' L</span>';
-				h += '<span>' + (row.item_count || 0) + ' items</span>';
-				h += '<span>' + frappe.datetime.str_to_user(row.posting_date) + '</span>';
-				h += '<span class="oz-badge" style="color:#0891b2;background:#ecfeff;">' + (row.status || '') + '</span></div>';
+			top3.forEach(function (row) { h += oz_ict_row(row); });
+			if (rest.length > 0) {
+				h += '<div id="oz-ict-more-wrap">';
+				h += '<div style="text-align:center;margin:8px 0;">';
+				h += '<a style="font-size:10px;font-weight:700;color:#0891b2;cursor:pointer;text-decoration:underline;" id="oz-ict-toggle">Show ' + rest.length + ' more \u25bc</a>';
 				h += '</div>';
-			});
+				h += '<div id="oz-ict-extra" style="display:none;">';
+				rest.forEach(function (row) { h += oz_ict_row(row); });
+				h += '</div></div>';
+			}
 			$('#oz-ict-chain').html(h);
+			$('#oz-ict-toggle').on('click', function () {
+				var ex = document.getElementById('oz-ict-extra');
+				if (ex.style.display === 'none') { ex.style.display = 'block'; this.textContent = 'Show less \u25b2'; }
+				else { ex.style.display = 'none'; this.textContent = 'Show ' + rest.length + ' more \u25bc'; }
+			});
 		}
 	});
 
@@ -1117,4 +1429,66 @@ function load_all_data() {
 			$('#oz-activity').html(h);
 		}
 	});
+
+
+/* ═══════════ ICT ROUTES BREAKDOWN ═══════════ */
+function oz_render_routes_breakdown(data) {
+	var el = document.getElementById('oz-routes-breakdown');
+	if (!el) return;
+	if (!data || !data.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No routes found</div>'; return; }
+	var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">';
+	data.forEach(function (r) {
+		var fromAbbr = r.company.replace(/^(\\S+).*/, '$1');
+		var toAbbr = r.to_company.replace(/^(\\S+).*/, '$1');
+		var items = (r.item_list || '').split(',').filter(Boolean);
+		var itemTags = items.slice(0, 3).map(function (it) {
+			return '<span style="display:inline-block;background:#ecfeff;color:#0891b2;font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;margin:1px 0;">' + it + '</span>';
+		}).join(' ');
+		if (items.length > 3) itemTags += '<span style="font-size:8px;color:#94a3b8;margin-left:2px;">+' + (items.length - 3) + '</span>';
+		var coEsc = r.company.replace(/'/g, "\\'");
+		var toEsc = r.to_company.replace(/'/g, "\\'");
+		var clickFn = "frappe.set_route('List','Inter Company Transfer',{company:'" + coEsc + "',to_company:'" + toEsc + "'})";
+		html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;cursor:pointer;transition:all 0.2s;"';
+		html += ' onmouseenter="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\';this.style.transform=\'translateY(-2px)\'"';
+		html += ' onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'"';
+		html += ' onclick="' + clickFn + '">';
+		html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+		html += '<div style="font-size:12px;font-weight:800;color:#1e293b;">' + fromAbbr + ' \u2192 ' + toAbbr + '</div>';
+		html += '<span style="font-size:9px;font-weight:700;color:#0891b2;background:#cffafe;padding:2px 6px;border-radius:6px;">' + r.cnt + ' xfers</span>';
+		html += '</div>';
+		html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">';
+		html += '<div><div style="font-size:8px;color:#94a3b8;">Volume</div><div style="font-size:11px;font-weight:800;color:#0891b2;">' + oz_n(r.qty) + ' L</div></div>';
+		html += '<div><div style="font-size:8px;color:#94a3b8;">Value</div><div style="font-size:11px;font-weight:800;color:#059669;">' + oz_k(r.value) + '</div></div>';
+		html += '</div>';
+		if (itemTags) html += '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;">' + itemTags + '</div>';
+		html += '</div>';
+	});
+	html += '</div>';
+	el.innerHTML = html;
+}
+
+/* ═══════════ RESERVED BY COMPANY ═══════════ */
+function oz_render_reserved_by_company(data) {
+	var el = document.getElementById('oz-res-by-company');
+	if (!el) return;
+	if (!data || !data.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No data</div>'; return; }
+	var maxVal = 0;
+	data.forEach(function (r) { if (r.value > maxVal) maxVal = r.value; });
+	var html = '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+	data.forEach(function (r) {
+		var pct = maxVal > 0 ? (r.value / maxVal) * 100 : 0;
+		var abbr = r.company.replace(/^(\S+).*/, '$1');
+		html += '<div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">';
+		html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+		html += '<span style="font-size:11px;font-weight:700;color:#1e293b;">' + abbr + '</span>';
+		html += '<span style="font-size:10px;font-weight:800;color:#d97706;">' + oz_n(r.qty) + ' L</span>';
+		html += '</div>';
+		html += '<div style="height:4px;border-radius:4px;background:#f1f5f9;overflow:hidden;margin-bottom:4px;">';
+		html += '<div style="height:100%;width:' + pct + '%;border-radius:4px;background:linear-gradient(90deg,#f59e0b,#d97706);transition:width 0.8s cubic-bezier(0.22,1,0.36,1);"></div></div>';
+		html += '<div style="font-size:8px;font-weight:700;color:#94a3b8;text-align:right;">' + oz_k(r.value) + '</div>';
+		html += '</div>';
+	});
+	html += '</div>';
+	el.innerHTML = html;
+}
 }

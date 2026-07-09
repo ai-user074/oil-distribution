@@ -218,6 +218,7 @@ class InterCompanyTransfer(StockController):
         po.flags.ignore_inter_company_validation = 1
         po.flags.ignore_permissions = True
         po.run_method("set_missing_values")
+        po.transaction_date = self.posting_date
 
         if self.purchase_tax_template:
             self.apply_tax_template(po, self.purchase_tax_template, self.to_company)
@@ -248,6 +249,8 @@ class InterCompanyTransfer(StockController):
         dn.flags.ignore_inter_company_validation = 1
         dn.flags.ignore_permissions = True
         dn.run_method("set_missing_values")
+        dn.posting_date = self.posting_date
+        dn.set_posting_time = 1
         dn.save(ignore_permissions=True)
         dn.submit()
 
@@ -278,6 +281,8 @@ class InterCompanyTransfer(StockController):
         pr.flags.ignore_inter_company_validation = 1
         pr.flags.ignore_permissions = True
         pr.run_method("set_missing_values")
+        pr.posting_date = self.posting_date
+        pr.set_posting_time = 1
         pr.save(ignore_permissions=True)
         pr.submit()
 
@@ -303,6 +308,8 @@ class InterCompanyTransfer(StockController):
         si.flags.ignore_links = True
         si.run_method("set_missing_values")
         si.run_method("calculate_taxes_and_totals")
+        si.posting_date = self.posting_date
+        si.set_posting_time = 1
         si.save(ignore_permissions=True)
         si.submit()
 
@@ -327,6 +334,8 @@ class InterCompanyTransfer(StockController):
         pi.flags.ignore_links = True
         pi.run_method("set_missing_values")
         pi.run_method("calculate_taxes_and_totals")
+        pi.posting_date = self.posting_date
+        pi.set_posting_time = 1
         pi.save(ignore_permissions=True)
         pi.submit()
 

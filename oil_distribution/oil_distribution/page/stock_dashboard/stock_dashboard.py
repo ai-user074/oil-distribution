@@ -126,7 +126,8 @@ def get_stock_by_warehouse():
     co_f, co_a = _co_filter()
     it_f, it_a = _item_filter()
 
-    return frappe.db.sql(
+    # Get warehouse-level summary
+    warehouses = frappe.db.sql(
         """SELECT w.name as warehouse, w.company, w.warehouse_type,
             SUM(b.actual_qty) as total_qty,
             SUM(b.stock_value) as total_value,
@@ -137,6 +138,40 @@ def get_stock_by_warehouse():
         GROUP BY w.name ORDER BY w.company, total_value DESC""",
         tuple(co_a) + tuple(it_a), as_dict=True,
     )
+
+    # Get item details per warehouse
+    wh_names = [w.warehouse for w in warehouses]
+    if wh_names:
+        placeholders = ", ".join(["%s"] * len(wh_names))
+        items = frappe.db.sql(
+            f"""SELECT b.warehouse, b.item_code, b.actual_qty as qty, b.stock_value as value,
+                b.valuation_rate
+            FROM `tabBin` b
+            WHERE b.warehouse IN ({placeholders}) AND b.actual_qty != 0
+            ORDER BY b.warehouse, b.stock_value DESC""",
+            tuple(wh_names), as_dict=True,
+        )
+    else:
+        items = []
+
+    # Group items by warehouse
+    wh_items = {}
+    for it in items:
+        wh = it.warehouse
+        if wh not in wh_items:
+            wh_items[wh] = []
+        wh_items[wh].append({
+            "item_code": it.item_code,
+            "qty": flt(it.qty),
+            "value": flt(it.value),
+            "rate": flt(it.valuation_rate),
+        })
+
+    # Attach items to warehouses
+    for wh in warehouses:
+        wh["items"] = wh_items.get(wh.warehouse, [])
+
+    return warehouses
 
 
 @frappe.whitelist()
