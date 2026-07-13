@@ -18,7 +18,7 @@
     window.csrf_token = "{{ csrf_token }}";
     window.site_name = '{{ site_name }}';
     if (!window.frappe) window.frappe = {};
-    window.frappe.boot = {{ boot }};
+    window.frappe.boot = {{ boot | tojson }};
   </script>
   <script type="module" src="/src/main.js"></script>
 </body>

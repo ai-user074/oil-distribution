@@ -55,4 +55,7 @@ app.provide("$session", session)
 
 router.isReady().then(() => {
   app.mount("#app")
+}).catch((err) => {
+  console.error("Router initialization failed:", err)
+  app.mount("#app")
 })
