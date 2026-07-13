@@ -61,11 +61,38 @@ def get_kpis():
         "reserved_stock": 0,
         "negative_alerts": 0,
         "intercompany_volume": 0,
+        "sales_by_company": [],
+        "procurement_by_company": [],
+        "profit_loss_by_company": [],
+        "sales_prev": None,
+        "procurement_prev": None,
+        "profit_loss_prev": None,
+        "sales_prev_by_company": [],
+        "procurement_prev_by_company": [],
+        "profit_loss_prev_by_company": [],
+        "show_change": False,
     }
+
+    # Determine if change % should be shown (only when exactly 1 period selected)
+    sel_months = frappe.form_dict.get("selected_months", "")
+    sel_qtrs = frappe.form_dict.get("selected_qtrs", "")
+    sel_ytd_fys = frappe.form_dict.get("selected_ytd_fys", "")
+    show_change = False
+    if period == "MTD" and sel_months:
+        month_list = [m.strip() for m in sel_months.split(",") if m.strip()]
+        show_change = len(month_list) == 1
+    elif period == "QTD" and sel_qtrs:
+        qtr_list = [q.strip() for q in sel_qtrs.split(",") if q.strip()]
+        show_change = len(qtr_list) == 1
+    elif period == "YTD" and sel_ytd_fys:
+        fy_list = [f.strip() for f in sel_ytd_fys.split(",") if f.strip()]
+        show_change = len(fy_list) == 1
+    result["show_change"] = show_change
 
     co_filter, co_args = _co_where()
     it_filter, it_args = _item_filter("sii")
 
+    # Sales total + by company
     sales_date_cond, sales_date_args = _period_condition(period, "si")
     sales = frappe.db.sql(
         """SELECT COALESCE(SUM(si.base_grand_total), 0) as total
@@ -78,9 +105,28 @@ def get_kpis():
     )
     result["sales_mtd"] = flt(sales[0].total) if sales else 0
 
+    # Sales by company (fixed order: GE, GEX, SHE)
+    sales_by_co = frappe.db.sql(
+        """SELECT si.company, COALESCE(SUM(si.base_grand_total), 0) as total
+        FROM `tabSales Invoice` si
+        JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        WHERE si.docstatus = 1 """
+        + sales_date_cond + co_filter + it_filter + """
+        GROUP BY si.company""",
+        tuple(sales_date_args) + tuple(co_args) + tuple(it_args),
+        as_dict=True,
+    )
+    co_order = ["Geeta Enterprise", "Global Export", "Shubham Enterprise"]
+    co_abbr = {"Geeta Enterprise": "GE", "Global Export": "GEX", "Shubham Enterprise": "SHE"}
+    sales_co_map = {d.company: flt(d.total) for d in (sales_by_co or [])}
+    result["sales_by_company"] = [
+        {"company": co, "total": sales_co_map.get(co, 0), "abbr": co_abbr[co]}
+        for co in co_order
+    ]
+
+    # Procurement total + by company
     _, item_pi = _get_filters()
     it_filter_pi, it_args_pi = _item_filter("pii")
-
     purchase_date_cond, purchase_date_args = _period_condition(period, "pi")
     purchase = frappe.db.sql(
         """SELECT COALESCE(SUM(pi.base_grand_total), 0) as total
@@ -92,7 +138,105 @@ def get_kpis():
         as_dict=True,
     )
     result["procurement_mtd"] = flt(purchase[0].total) if purchase else 0
+
+    # Procurement by company (fixed order: GE, GEX, SHE)
+    purchase_by_co = frappe.db.sql(
+        """SELECT pi.company, COALESCE(SUM(pi.base_grand_total), 0) as total
+        FROM `tabPurchase Invoice` pi
+        JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
+        WHERE pi.docstatus = 1 """
+        + purchase_date_cond + co_filter + it_filter_pi + """
+        GROUP BY pi.company""",
+        tuple(purchase_date_args) + tuple(co_args) + tuple(it_args_pi),
+        as_dict=True,
+    )
+    purchase_co_map = {d.company: flt(d.total) for d in (purchase_by_co or [])}
+    result["procurement_by_company"] = [
+        {"company": co, "total": purchase_co_map.get(co, 0), "abbr": co_abbr[co]}
+        for co in co_order
+    ]
+
     result["profit_loss"] = result["sales_mtd"] - result["procurement_mtd"]
+
+    # Previous period values for change calculation
+    prev_date_cond, prev_date_args = _prev_period_condition(period, "si")
+    if prev_date_cond:
+        prev_sales = frappe.db.sql(
+            """SELECT COALESCE(SUM(si.base_grand_total), 0) as total
+            FROM `tabSales Invoice` si
+            JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+            WHERE si.docstatus = 1 """
+            + prev_date_cond + co_filter + it_filter,
+            tuple(prev_date_args) + tuple(co_args) + tuple(it_args),
+            as_dict=True,
+        )
+        result["sales_prev"] = flt(prev_sales[0].total) if prev_sales else 0
+
+        # Sales previous by company
+        prev_sales_by_co = frappe.db.sql(
+            """SELECT si.company, COALESCE(SUM(si.base_grand_total), 0) as total
+            FROM `tabSales Invoice` si
+            JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+            WHERE si.docstatus = 1 """
+            + prev_date_cond + co_filter + it_filter + """
+            GROUP BY si.company""",
+            tuple(prev_date_args) + tuple(co_args) + tuple(it_args),
+            as_dict=True,
+        )
+        prev_sales_co_map = {d.company: flt(d.total) for d in (prev_sales_by_co or [])}
+        result["sales_prev_by_company"] = [
+            {"company": co, "abbr": co_abbr[co], "total": prev_sales_co_map.get(co, 0)}
+            for co in co_order
+        ]
+
+        prev_pi_date_cond, prev_pi_date_args = _prev_period_condition(period, "pi")
+        prev_purchase = frappe.db.sql(
+            """SELECT COALESCE(SUM(pi.base_grand_total), 0) as total
+            FROM `tabPurchase Invoice` pi
+            JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
+            WHERE pi.docstatus = 1 """
+            + prev_pi_date_cond + co_filter + it_filter_pi,
+            tuple(prev_pi_date_args) + tuple(co_args) + tuple(it_args_pi),
+            as_dict=True,
+        )
+        result["procurement_prev"] = flt(prev_purchase[0].total) if prev_purchase else 0
+
+        # Procurement previous by company
+        prev_purchase_by_co = frappe.db.sql(
+            """SELECT pi.company, COALESCE(SUM(pi.base_grand_total), 0) as total
+            FROM `tabPurchase Invoice` pi
+            JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
+            WHERE pi.docstatus = 1 """
+            + prev_pi_date_cond + co_filter + it_filter_pi + """
+            GROUP BY pi.company""",
+            tuple(prev_pi_date_args) + tuple(co_args) + tuple(it_args_pi),
+            as_dict=True,
+        )
+        prev_purchase_co_map = {d.company: flt(d.total) for d in (prev_purchase_by_co or [])}
+        result["procurement_prev_by_company"] = [
+            {"company": co, "abbr": co_abbr[co], "total": prev_purchase_co_map.get(co, 0)}
+            for co in co_order
+        ]
+
+        result["profit_loss_prev"] = result["sales_prev"] - result["procurement_prev"]
+
+        # Profit/Loss previous by company
+        result["profit_loss_prev_by_company"] = [
+            {"company": co, "abbr": co_abbr[co],
+             "total": result["sales_prev_by_company"][i]["total"] - result["procurement_prev_by_company"][i]["total"]}
+            for i, co in enumerate(co_order)
+        ]
+    else:
+        result["sales_prev_by_company"] = []
+        result["procurement_prev_by_company"] = []
+        result["profit_loss_prev_by_company"] = []
+
+    # Profit/Loss by company (fixed order: GE, GEX, SHE)
+    result["profit_loss_by_company"] = [
+        {"company": co, "abbr": co_abbr[co],
+         "total": result["sales_by_company"][i]["total"] - result["procurement_by_company"][i]["total"]}
+        for i, co in enumerate(co_order)
+    ]
 
     # Available stock
     it_bin_a, it_args_ba = _item_filter("b")
@@ -133,32 +277,32 @@ def get_kpis():
     )
     result["negative_alerts"] = int(neg[0].cnt) if neg else 0
 
-    # ICT volume (FY-aware)
+    # ICT volume (FY-level — uses FY bounds, not period filter)
     it_ict, it_args_ict = _item_filter("iti")
     ict_co, ict_co_args = _ict_co_where()
-    ict_date_cond, ict_date_args = _period_condition(period, "it")
+    ict_fy_cond, ict_fy_args = _fy_only_condition("it")
     ict = frappe.db.sql(
         """SELECT COALESCE(SUM(it.total_qty), 0) as qty
         FROM `tabInter Company Transfer` it
         JOIN `tabInter Company Transfer Item` iti ON iti.parent = it.name
         WHERE it.docstatus = 1 """
-        + ict_date_cond + ict_co + it_ict,
-        tuple(ict_date_args) + tuple(ict_co_args) + tuple(it_args_ict),
+        + ict_fy_cond + ict_co + it_ict,
+        tuple(ict_fy_args) + tuple(ict_co_args) + tuple(it_args_ict),
         as_dict=True,
     )
     result["intercompany_volume"] = flt(ict[0].qty) if ict else 0
 
-    # --- ICT extended KPIs (FY-aware) ---
+    # --- ICT extended KPIs (FY-level) ---
     it_ext, it_args_ext = _item_filter("iti")
     ict_co_ext, ict_co_args_ext = _ict_co_where()
-    ict_ext_date_cond, ict_ext_date_args = _period_condition(period, "it")
+    ict_fy_cond_ext, ict_fy_args_ext = _fy_only_condition("it")
     ict_ext = frappe.db.sql(
         """SELECT COUNT(*) as cnt, COALESCE(SUM(it.grand_total), 0) as val
         FROM `tabInter Company Transfer` it
         JOIN `tabInter Company Transfer Item` iti ON iti.parent = it.name
         WHERE it.docstatus = 1 """
-        + ict_ext_date_cond + ict_co_ext + it_ext,
-        tuple(ict_ext_date_args) + tuple(ict_co_args_ext) + tuple(it_args_ext),
+        + ict_fy_cond_ext + ict_co_ext + it_ext,
+        tuple(ict_fy_args_ext) + tuple(ict_co_args_ext) + tuple(it_args_ext),
         as_dict=True,
     )
     result["ict_count_mtd"] = int(ict_ext[0].cnt) if ict_ext else 0
@@ -177,10 +321,10 @@ def get_kpis():
     )
     result["pending_icts"] = int(pending[0].cnt) if pending else 0
 
-    # Routes breakdown (FY-aware)
+    # Routes breakdown (FY-aware — all routes for the selected FY, not just current period)
     it_route, it_args_route = _item_filter("iti")
     ict_co_route, ict_co_args_route = _ict_co_where()
-    route_date_cond, route_date_args = _period_condition(period, "it")
+    route_fy_cond, route_fy_args = _fy_only_condition("it")
     routes = frappe.db.sql(
         "SELECT it.company, it.to_company, COUNT(*) as cnt,"
         " COALESCE(SUM(it.total_qty), 0) as qty,"
@@ -189,9 +333,9 @@ def get_kpis():
         " FROM `tabInter Company Transfer` it"
         " JOIN `tabInter Company Transfer Item` iti ON iti.parent = it.name"
         " WHERE it.docstatus = 1 "
-        + route_date_cond + ict_co_route + " " + it_route
+        + route_fy_cond + ict_co_route + " " + it_route
         + " GROUP BY it.company, it.to_company ORDER BY cnt DESC",
-        tuple(route_date_args) + tuple(ict_co_args_route) + tuple(it_args_route), as_dict=True,
+        tuple(route_fy_args) + tuple(ict_co_args_route) + tuple(it_args_route), as_dict=True,
     )
     result["active_routes"] = len(routes) if routes else 0
     result["routes_breakdown"] = routes or []
@@ -235,13 +379,31 @@ def get_sales_procurement_trend():
     months = []
     sales_data = []
     purchase_data = []
+    variance_data = []
     co_filter, co_args = _co_where()
     it_filter_si, it_args_si = _item_filter("sii")
     it_filter_pi, it_args_pi = _item_filter("pii")
 
-    num_months = int(frappe.form_dict.get("months", 6) or 6)
-
     fy = frappe.form_dict.get("fy", "All") or "All"
+    period = frappe.form_dict.get("period", "MTD") or "MTD"
+    selected_months = frappe.form_dict.get("selected_months", "")
+    selected_qtrs = frappe.form_dict.get("selected_qtrs", "")
+    selected_ytd_fys = frappe.form_dict.get("selected_ytd_fys", "")
+
+    # Parse selected months/quarters/FYs
+    sel_months = []
+    if selected_months:
+        sel_months = [int(m) for m in selected_months.split(",") if m.strip()]
+
+    sel_qtrs = []
+    if selected_qtrs:
+        sel_qtrs = [int(q) for q in selected_qtrs.split(",") if q.strip()]
+
+    sel_ytd_fys = []
+    if selected_ytd_fys:
+        sel_ytd_fys = [f.strip() for f in selected_ytd_fys.split(",") if f.strip()]
+
+    # Determine FY bounds
     fy_start = fy_end = None
     if fy != "All" and "," not in fy:
         fy_parts = fy.split("_")
@@ -249,28 +411,144 @@ def get_sales_procurement_trend():
             fy_start = getdate(fy_parts[0])
             fy_end = getdate(fy_parts[1])
 
-    # Use FY end as reference when a single FY is selected
-    ref = getdate(today())
-    if fy_start:
-        ref = fy_end if fy_end < ref else ref
+    # FY month index → (actual_month, year_offset_from_fy_start)
+    FY_MONTH_MAP = {
+        0: (4, 0), 1: (5, 0), 2: (6, 0), 3: (7, 0), 4: (8, 0), 5: (9, 0),
+        6: (10, 1), 7: (11, 1), 8: (12, 1), 9: (1, 1), 10: (2, 1), 11: (3, 1),
+    }
 
-    for i in range(num_months - 1, -1, -1):
-        dt = add_months(ref, -i)
-        month_start_dt = getdate(dt).replace(day=1)
-        month_end_dt = getdate(add_months(month_start_dt, 1))
+    # Build list of months to query
+    months_to_query = []
 
+    if period == "MTD" and sel_months:
+        # Specific months selected
+        if fy_start and fy_end:
+            fy_months = []
+            for m_idx in range(12):
+                actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                yr = fy_start.year + year_offset
+                month_start = getdate(f"{yr}-{actual_month:02d}-01")
+                month_end = getdate(add_months(month_start, 1))
+                # Clamp to FY bounds
+                if month_start < fy_start:
+                    month_start = fy_start
+                if month_end > fy_end:
+                    month_end = fy_end
+                if month_start < month_end:
+                    fy_months.append({
+                        "idx": m_idx,
+                        "start": month_start,
+                        "end": month_end,
+                        "label": month_start.strftime("%b %Y")
+                    })
+            for m in fy_months:
+                if m["idx"] in sel_months:
+                    months_to_query.append(m)
+        else:
+            # No FY selected, use current date as reference
+            ref = getdate(today())
+            for m_idx in sel_months:
+                actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                yr = ref.year + year_offset
+                month_start = getdate(f"{yr}-{actual_month:02d}-01")
+                month_end = getdate(add_months(month_start, 1))
+                if month_start < month_end:
+                    months_to_query.append({
+                        "idx": m_idx,
+                        "start": month_start,
+                        "end": month_end,
+                        "label": month_start.strftime("%b %Y")
+                    })
+
+    elif period == "QTD" and sel_qtrs:
+        # Quarters selected
+        qtr_months = {1: [0, 1, 2], 2: [3, 4, 5], 3: [6, 7, 8], 4: [9, 10, 11]}
+        for q in sel_qtrs:
+            for m_idx in qtr_months.get(q, []):
+                if fy_start and fy_end:
+                    actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                    yr = fy_start.year + year_offset
+                    month_start = getdate(f"{yr}-{actual_month:02d}-01")
+                    month_end = getdate(add_months(month_start, 1))
+                    if month_start < fy_start:
+                        month_start = fy_start
+                    if month_end > fy_end:
+                        month_end = fy_end
+                    if month_start < month_end:
+                        months_to_query.append({
+                            "idx": m_idx,
+                            "start": month_start,
+                            "end": month_end,
+                            "label": month_start.strftime("%b %Y")
+                        })
+                else:
+                    ref = getdate(today())
+                    actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                    yr = ref.year + year_offset
+                    month_start = getdate(f"{yr}-{actual_month:02d}-01")
+                    month_end = getdate(add_months(month_start, 1))
+                    if month_start < month_end:
+                        months_to_query.append({
+                            "idx": m_idx,
+                            "start": month_start,
+                            "end": month_end,
+                            "label": month_start.strftime("%b %Y")
+                        })
+
+    elif period == "YTD" and sel_ytd_fys:
+        # Multiple FYs selected - query all months in each FY
+        # Use offset idx so months sort sequentially across FYs
+        for fy_offset, fy_val in enumerate(sel_ytd_fys):
+            fy_parts = fy_val.split("_")
+            if len(fy_parts) == 2:
+                ytd_start = getdate(fy_parts[0])
+                ytd_end = getdate(fy_parts[1])
+                for m_idx in range(12):
+                    actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                    yr = ytd_start.year + year_offset
+                    month_start = getdate(f"{yr}-{actual_month:02d}-01")
+                    month_end = getdate(add_months(month_start, 1))
+                    if month_start < ytd_start:
+                        month_start = ytd_start
+                    if month_end > ytd_end:
+                        month_end = ytd_end
+                    if month_start < month_end:
+                        months_to_query.append({
+                            "idx": fy_offset * 12 + m_idx,
+                            "start": month_start,
+                            "end": month_end,
+                            "label": month_start.strftime("%b %Y")
+                        })
+    else:
+        # Default: query recent N months
+        num_months = 6
+        ref = getdate(today())
         if fy_start:
-            if month_start_dt >= fy_end or month_end_dt <= fy_start:
-                months.append("")
-                sales_data.append(0)
-                purchase_data.append(0)
-                continue
-            if month_start_dt < fy_start:
-                month_start_dt = fy_start
-            if month_end_dt > fy_end:
-                month_end_dt = fy_end
+            ref = fy_end if fy_end < ref else ref
+        for i in range(num_months - 1, -1, -1):
+            dt = add_months(ref, -i)
+            month_start_dt = getdate(dt).replace(day=1)
+            month_end_dt = getdate(add_months(month_start_dt, 1))
+            if fy_start:
+                if month_start_dt >= fy_end or month_end_dt <= fy_start:
+                    continue
+                if month_start_dt < fy_start:
+                    month_start_dt = fy_start
+                if month_end_dt > fy_end:
+                    month_end_dt = fy_end
+            months_to_query.append({
+                "idx": i,
+                "start": month_start_dt,
+                "end": month_end_dt,
+                "label": month_start_dt.strftime("%b %Y")
+            })
 
-        months.append(month_start_dt.strftime("%b %Y"))
+    # Sort by actual start date to ensure calendar/FY order regardless of selection order
+    months_to_query.sort(key=lambda x: x["start"])
+
+    # Query data for each month
+    for m in months_to_query:
+        months.append(m["label"])
 
         sales = frappe.db.sql(
             """SELECT COALESCE(SUM(si.base_grand_total), 0) as total
@@ -278,10 +556,11 @@ def get_sales_procurement_trend():
             JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
             WHERE si.docstatus = 1 AND si.posting_date >= %s AND si.posting_date < %s """
             + co_filter + it_filter_si,
-            (month_start_dt, month_end_dt) + tuple(co_args) + tuple(it_args_si),
+            (m["start"], m["end"]) + tuple(co_args) + tuple(it_args_si),
             as_dict=True,
         )
-        sales_data.append(flt(sales[0].total) if sales else 0)
+        sales_val = flt(sales[0].total) if sales else 0
+        sales_data.append(sales_val)
 
         purchase = frappe.db.sql(
             """SELECT COALESCE(SUM(pi.base_grand_total), 0) as total
@@ -289,12 +568,32 @@ def get_sales_procurement_trend():
             JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
             WHERE pi.docstatus = 1 AND pi.posting_date >= %s AND pi.posting_date < %s """
             + co_filter + it_filter_pi,
-            (month_start_dt, month_end_dt) + tuple(co_args) + tuple(it_args_pi),
+            (m["start"], m["end"]) + tuple(co_args) + tuple(it_args_pi),
             as_dict=True,
         )
-        purchase_data.append(flt(purchase[0].total) if purchase else 0)
+        purchase_val = flt(purchase[0].total) if purchase else 0
+        purchase_data.append(purchase_val)
 
-    return {"labels": months, "sales": sales_data, "purchase": purchase_data}
+        # Variance = Sales - Procurement
+        variance_data.append(sales_val - purchase_val)
+
+    # Calculate variance change (MoM/QoQ/YoY) - capped at 999%
+    variance_change = []
+    for i in range(len(variance_data)):
+        if i == 0 or variance_data[i - 1] == 0:
+            variance_change.append(None)  # N/A for first period
+        else:
+            change = ((variance_data[i] - variance_data[i - 1]) / abs(variance_data[i - 1])) * 100
+            change = max(-999, min(999, change))  # Cap at ±999%
+            variance_change.append(round(change, 1))
+
+    return {
+        "labels": months,
+        "sales": sales_data,
+        "purchase": purchase_data,
+        "variance": variance_data,
+        "variance_change": variance_change
+    }
 
 
 @frappe.whitelist()
@@ -365,16 +664,7 @@ def get_recent_icts():
     it_filter, it_args = _item_filter("iti")
     ict_co, ict_co_args = _ict_co_where()
 
-    fy = frappe.form_dict.get("fy", "All") or "All"
-    date_cond = ""
-    date_args = []
-    if fy != "All" and "," not in fy:
-        fy_parts = fy.split("_")
-        if len(fy_parts) == 2:
-            fy_start = getdate(fy_parts[0])
-            fy_end = getdate(fy_parts[1])
-            date_cond = "AND it.posting_date >= %s AND it.posting_date < %s"
-            date_args = [fy_start, fy_end]
+    fy_cond, fy_args = _fy_only_condition("it")
 
     return frappe.db.sql(
         """SELECT it.name, it.company, it.to_company, it.total_qty, it.grand_total,
@@ -382,8 +672,8 @@ def get_recent_icts():
         FROM `tabInter Company Transfer` it
         JOIN `tabInter Company Transfer Item` iti ON iti.parent = it.name
         WHERE it.docstatus = 1 """
-        + date_cond + ict_co + it_filter + " GROUP BY it.name ORDER BY it.posting_date DESC LIMIT 10",
-        tuple(date_args) + tuple(ict_co_args) + tuple(it_args),
+        + fy_cond + ict_co + it_filter + " GROUP BY it.name ORDER BY it.posting_date DESC LIMIT 10",
+        tuple(fy_args) + tuple(ict_co_args) + tuple(it_args),
         as_dict=True,
     )
 
@@ -480,16 +770,7 @@ def get_ict_chain():
     it_filter, it_args = _item_filter("iti")
     ict_co, ict_co_args = _ict_co_where()
 
-    fy = frappe.form_dict.get("fy", "All") or "All"
-    date_cond = ""
-    date_args = []
-    if fy != "All" and "," not in fy:
-        fy_parts = fy.split("_")
-        if len(fy_parts) == 2:
-            fy_start = getdate(fy_parts[0])
-            fy_end = getdate(fy_parts[1])
-            date_cond = "AND it.posting_date >= %s AND it.posting_date < %s"
-            date_args = [fy_start, fy_end]
+    fy_cond, fy_args = _fy_only_condition("it")
 
     return frappe.db.sql(
         """SELECT it.name, it.company, it.to_company, it.total_qty, it.grand_total,
@@ -499,8 +780,8 @@ def get_ict_chain():
         FROM `tabInter Company Transfer` it
         JOIN `tabInter Company Transfer Item` iti ON iti.parent = it.name
         WHERE it.docstatus = 1 """
-        + date_cond + ict_co + it_filter + " GROUP BY it.name ORDER BY it.grand_total DESC LIMIT 10",
-        tuple(date_args) + tuple(ict_co_args) + tuple(it_args),
+        + fy_cond + ict_co + it_filter + " GROUP BY it.name ORDER BY it.grand_total DESC LIMIT 10",
+        tuple(fy_args) + tuple(ict_co_args) + tuple(it_args),
         as_dict=True,
     )
 
@@ -555,12 +836,17 @@ def get_company_comparison():
 
 
 def _period_condition(period, alias="si"):
-    """Return date SQL condition and args for the given period (FY-aware)."""
+    """Return date SQL condition and args for the given period (FY-aware, respects month/quarter selections)."""
     today_dt = getdate(today())
-    cur_year = today_dt.year
-    cur_month = today_dt.month
 
-    # Determine FY bounds — None means no FY boundary (all data)
+    # FY month index → (actual_month, year_offset_from_fy_start)
+    # m_idx 0=Apr, 1=May, ..., 11=Mar
+    FY_MONTH_MAP = {
+        0: (4, 0), 1: (5, 0), 2: (6, 0), 3: (7, 0), 4: (8, 0), 5: (9, 0),
+        6: (10, 1), 7: (11, 1), 8: (12, 1), 9: (1, 1), 10: (2, 1), 11: (3, 1),
+    }
+
+    # Determine FY bounds
     fy = frappe.form_dict.get("fy", "All") or "All"
     fy_start = fy_end = None
     if fy != "All" and "," not in fy:
@@ -569,30 +855,335 @@ def _period_condition(period, alias="si"):
             fy_start = getdate(fy_parts[0])
             fy_end = getdate(fy_parts[1])
 
-    # Period end
-    if fy_start:
-        end = today_dt if today_dt < fy_end else fy_end
-    else:
-        end = today_dt
-    ref_month = end.month
+    selected_months = frappe.form_dict.get("selected_months", "")
+    selected_qtrs = frappe.form_dict.get("selected_qtrs", "")
+    selected_ytd_fys = frappe.form_dict.get("selected_ytd_fys", "")
 
-    # Period start
-    if period == "QTD":
-        q_month = ((ref_month - 1) // 3) * 3 + 1
-        start = end.replace(month=q_month, day=1)
-    elif period == "YTD":
-        if fy_start:
-            start = fy_start
+    # Build list of (month_start, month_end) ranges
+    ranges = []
+
+    if period == "MTD" and selected_months:
+        sel = [int(m) for m in selected_months.split(",") if m.strip()]
+        if fy_start and fy_end:
+            for m_idx in sel:
+                actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                yr = fy_start.year + year_offset
+                ms = getdate(f"{yr}-{actual_month:02d}-01")
+                me = getdate(add_months(ms, 1))
+                if ms < fy_start: ms = fy_start
+                if me > fy_end: me = fy_end
+                if ms < me:
+                    ranges.append((ms, me))
         else:
-            start_year = cur_year if cur_month >= 4 else cur_year - 1
-            start = getdate(f"{start_year}-04-01")
-    else:  # MTD
-        start = end.replace(day=1)
+            ref = fy_end if fy_end and fy_end < today_dt else today_dt
+            for m_idx in sel:
+                actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                yr = ref.year + year_offset
+                ms = getdate(f"{yr}-{actual_month:02d}-01")
+                me = getdate(add_months(ms, 1))
+                if ms < me:
+                    ranges.append((ms, me))
 
-    # Clamp start to FY bounds (only when a specific FY is selected)
-    if fy_start and start < fy_start:
-        start = fy_start
-    if start > end:
-        start = end
+    elif period == "QTD" and selected_qtrs:
+        sel_q = [int(q) for q in selected_qtrs.split(",") if q.strip()]
+        qtr_months = {1: [0, 1, 2], 2: [3, 4, 5], 3: [6, 7, 8], 4: [9, 10, 11]}
+        if fy_start and fy_end:
+            for q in sel_q:
+                for m_idx in qtr_months.get(q, []):
+                    actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                    yr = fy_start.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < fy_start: ms = fy_start
+                    if me > fy_end: me = fy_end
+                    if ms < me:
+                        ranges.append((ms, me))
+        else:
+            ref = today_dt
+            for q in sel_q:
+                for m_idx in qtr_months.get(q, []):
+                    actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                    yr = ref.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < me:
+                        ranges.append((ms, me))
 
-    return f"AND {alias}.posting_date >= %s AND {alias}.posting_date <= %s", [start, end]
+    elif period == "YTD" and selected_ytd_fys:
+        for fy_val in selected_ytd_fys.split(","):
+            fy_val = fy_val.strip()
+            fy_parts = fy_val.split("_")
+            if len(fy_parts) == 2:
+                ytd_start = getdate(fy_parts[0])
+                ytd_end = getdate(fy_parts[1])
+                for m_idx in range(12):
+                    actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                    yr = ytd_start.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < ytd_start: ms = ytd_start
+                    if me > ytd_end: me = ytd_end
+                    if ms < me:
+                        ranges.append((ms, me))
+
+    else:
+        # Fallback: generic MTD/QTD/YTD
+        if fy_start:
+            end = today_dt if today_dt < fy_end else fy_end
+        else:
+            end = today_dt
+        ref_month = end.month
+        if period == "QTD":
+            q_month = ((ref_month - 1) // 3) * 3 + 1
+            start = end.replace(month=q_month, day=1)
+        elif period == "YTD":
+            if fy_start:
+                start = fy_start
+            else:
+                start_year = today_dt.year if today_dt.month >= 4 else today_dt.year - 1
+                start = getdate(f"{start_year}-04-01")
+        else:
+            start = end.replace(day=1)
+        if fy_start and start < fy_start:
+            start = fy_start
+        if start > end:
+            start = end
+        ranges.append((start, end))
+
+    if not ranges:
+        return "", []
+
+    # Build OR conditions for multiple ranges
+    conditions = []
+    args = []
+    for ms, me in ranges:
+        conditions.append(f"{alias}.posting_date >= %s AND {alias}.posting_date < %s")
+        args.extend([ms, me])
+
+    return "AND (" + " OR ".join(conditions) + ")", args
+
+
+def _fy_only_condition(alias="si"):
+    """Return FY-only date SQL condition (no period filter)."""
+    fy = frappe.form_dict.get("fy", "All") or "All"
+    if fy == "All" or "," in fy:
+        return "", []
+    fy_parts = fy.split("_")
+    if len(fy_parts) != 2:
+        return "", []
+    fy_start = getdate(fy_parts[0])
+    fy_end = getdate(fy_parts[1])
+    return f"AND {alias}.posting_date >= %s AND {alias}.posting_date < %s", [fy_start, fy_end]
+
+
+def _prev_period_condition(period, alias="si"):
+    """Return date SQL condition and args for the comparison period.
+    
+    Supports:
+    - compare_month: Specific month index (0=Apr, 1=May, ..., 11=Mar) to compare against
+    - compare_qtr: Specific quarter (1-4) to compare against
+    - compare_fy: Specific FY value (e.g., "2024-04-01_2025-03-31") to compare against
+    - Default: Previous period (shift back by 1)
+    """
+    today_dt = getdate(today())
+    
+    # Get comparison selections from form
+    compare_month = frappe.form_dict.get("compare_month", "")
+    compare_qtr = frappe.form_dict.get("compare_qtr", "")
+    compare_fy = frappe.form_dict.get("compare_fy", "")
+
+    # FY month index → (actual_month, year_offset_from_fy_start)
+    FY_MONTH_MAP = {
+        0: (4, 0), 1: (5, 0), 2: (6, 0), 3: (7, 0), 4: (8, 0), 5: (9, 0),
+        6: (10, 1), 7: (11, 1), 8: (12, 1), 9: (1, 1), 10: (2, 1), 11: (3, 1),
+    }
+
+    # Determine FY bounds
+    fy = frappe.form_dict.get("fy", "All") or "All"
+    fy_start = fy_end = None
+    if fy != "All" and "," not in fy:
+        fy_parts = fy.split("_")
+        if len(fy_parts) == 2:
+            fy_start = getdate(fy_parts[0])
+            fy_end = getdate(fy_parts[1])
+
+    selected_months = frappe.form_dict.get("selected_months", "")
+    selected_qtrs = frappe.form_dict.get("selected_qtrs", "")
+    selected_ytd_fys = frappe.form_dict.get("selected_ytd_fys", "")
+
+    ranges = []
+
+    if period == "MTD" and selected_months:
+        sel = [int(m) for m in selected_months.split(",") if m.strip()]
+        if compare_month != "":
+            # User selected a specific month to compare against
+            cmp_m = int(compare_month)
+            actual_month, year_offset = FY_MONTH_MAP[cmp_m]
+            if fy_start and fy_end:
+                yr = fy_start.year + year_offset
+                ms = getdate(f"{yr}-{actual_month:02d}-01")
+                me = getdate(add_months(ms, 1))
+                if ms < fy_start: ms = fy_start
+                if me > fy_end: me = fy_end
+                if ms < me:
+                    ranges.append((ms, me))
+            else:
+                ref = fy_end if fy_end and fy_end < today_dt else today_dt
+                yr = ref.year + year_offset
+                ms = getdate(f"{yr}-{actual_month:02d}-01")
+                me = getdate(add_months(ms, 1))
+                if ms < me:
+                    ranges.append((ms, me))
+        else:
+            # Default: shift back 1 month
+            if fy_start and fy_end:
+                for m_idx in sel:
+                    prev_m_idx = m_idx - 1
+                    if prev_m_idx < 0:
+                        prev_m_idx = 11
+                    actual_month, year_offset = FY_MONTH_MAP[prev_m_idx]
+                    yr = fy_start.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < fy_start: ms = fy_start
+                    if me > fy_end: me = fy_end
+                    if ms < me:
+                        ranges.append((ms, me))
+            else:
+                ref = fy_end if fy_end and fy_end < today_dt else today_dt
+                for m_idx in sel:
+                    prev_m_idx = m_idx - 1
+                    if prev_m_idx < 0:
+                        prev_m_idx = 11
+                    actual_month, year_offset = FY_MONTH_MAP[prev_m_idx]
+                    yr = ref.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < me:
+                        ranges.append((ms, me))
+
+    elif period == "QTD" and selected_qtrs:
+        sel_q = [int(q) for q in selected_qtrs.split(",") if q.strip()]
+        qtr_months = {1: [0, 1, 2], 2: [3, 4, 5], 3: [6, 7, 8], 4: [9, 10, 11]}
+        if compare_qtr != "":
+            # User selected a specific quarter to compare against
+            cmp_q = int(compare_qtr)
+            for m_idx in qtr_months.get(cmp_q, []):
+                actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                if fy_start and fy_end:
+                    yr = fy_start.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < fy_start: ms = fy_start
+                    if me > fy_end: me = fy_end
+                    if ms < me:
+                        ranges.append((ms, me))
+                else:
+                    ref = today_dt
+                    yr = ref.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < me:
+                        ranges.append((ms, me))
+        else:
+            # Default: shift back 1 quarter
+            if fy_start and fy_end:
+                for q in sel_q:
+                    prev_q = q - 1 if q > 1 else 4
+                    for m_idx in qtr_months.get(prev_q, []):
+                        actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                        yr = fy_start.year + year_offset
+                        ms = getdate(f"{yr}-{actual_month:02d}-01")
+                        me = getdate(add_months(ms, 1))
+                        if ms < fy_start: ms = fy_start
+                        if me > fy_end: me = fy_end
+                        if ms < me:
+                            ranges.append((ms, me))
+            else:
+                ref = today_dt
+                for q in sel_q:
+                    prev_q = q - 1 if q > 1 else 4
+                    for m_idx in qtr_months.get(prev_q, []):
+                        actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                        yr = ref.year + year_offset
+                        ms = getdate(f"{yr}-{actual_month:02d}-01")
+                        me = getdate(add_months(ms, 1))
+                        if ms < me:
+                            ranges.append((ms, me))
+
+    elif period == "YTD" and selected_ytd_fys:
+        if compare_fy != "":
+            # User selected a specific FY to compare against
+            cmp_fy_parts = compare_fy.split("_")
+            if len(cmp_fy_parts) == 2:
+                cmp_start = getdate(cmp_fy_parts[0])
+                cmp_end = getdate(cmp_fy_parts[1])
+                for m_idx in range(12):
+                    actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                    yr = cmp_start.year + year_offset
+                    ms = getdate(f"{yr}-{actual_month:02d}-01")
+                    me = getdate(add_months(ms, 1))
+                    if ms < cmp_start: ms = cmp_start
+                    if me > cmp_end: me = cmp_end
+                    if ms < me:
+                        ranges.append((ms, me))
+        else:
+            # Default: shift back 1 FY
+            for fy_val in selected_ytd_fys.split(","):
+                fy_val = fy_val.strip()
+                fy_parts = fy_val.split("_")
+                if len(fy_parts) == 2:
+                    ytd_start = getdate(fy_parts[0])
+                    ytd_end = getdate(fy_parts[1])
+                    prev_start = ytd_start.replace(year=ytd_start.year - 1)
+                    prev_end = ytd_end.replace(year=ytd_end.year - 1)
+                    for m_idx in range(12):
+                        actual_month, year_offset = FY_MONTH_MAP[m_idx]
+                        yr = prev_start.year + year_offset
+                        ms = getdate(f"{yr}-{actual_month:02d}-01")
+                        me = getdate(add_months(ms, 1))
+                        if ms < prev_start: ms = prev_start
+                        if me > prev_end: me = prev_end
+                        if ms < me:
+                            ranges.append((ms, me))
+
+    else:
+        # Fallback: shift back by 1 period
+        if fy_start:
+            end = today_dt if today_dt < fy_end else fy_end
+        else:
+            end = today_dt
+        ref_month = end.month
+        if period == "QTD":
+            q_month = ((ref_month - 1) // 3) * 3 + 1
+            start = end.replace(month=q_month, day=1)
+            prev_start = start.replace(month=max(1, start.month - 3))
+            prev_end = start
+        elif period == "YTD":
+            if fy_start:
+                start = fy_start
+            else:
+                start_year = today_dt.year if today_dt.month >= 4 else today_dt.year - 1
+                start = getdate(f"{start_year}-04-01")
+            prev_start = start.replace(year=start.year - 1)
+            prev_end = end.replace(year=end.year - 1)
+        else:
+            start = end.replace(day=1)
+            prev_start = start.replace(month=max(1, start.month - 1))
+            prev_end = start
+        if fy_start and prev_start < fy_start:
+            prev_start = fy_start
+        if prev_start > prev_end:
+            prev_start = prev_end
+        ranges.append((prev_start, prev_end))
+
+    if not ranges:
+        return "", []
+
+    conditions = []
+    args = []
+    for ms, me in ranges:
+        conditions.append(f"{alias}.posting_date >= %s AND {alias}.posting_date < %s")
+        args.extend([ms, me])
+
+    return "AND (" + " OR ".join(conditions) + ")", args

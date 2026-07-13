@@ -1,0 +1,73 @@
+@import "frappe-ui/style.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+ion-modal {
+  --height: auto;
+}
+ion-modal::part(content) {
+  border-radius: 12px 12px 0 0;
+}
+
+input:disabled {
+  -webkit-text-fill-color: var(--tw-text-color);
+  opacity: 0.9;
+  color: var(--tw-text-color);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+@media (min-width: 768px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.inset-list {
+  margin: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.content-section {
+  padding: 0 16px;
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  padding: 0 2px;
+  margin-bottom: 12px;
+}
+.dark .section-title {
+  color: #94a3b8;
+}
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}

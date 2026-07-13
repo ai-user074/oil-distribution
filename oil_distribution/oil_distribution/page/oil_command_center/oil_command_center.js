@@ -30,6 +30,7 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 		});
 	}
 	window.oz_fy_options = fyOptions;
+	window.oz_kpi_data = {};  // Store KPI data for sparkline with %
 
 	// Tabs
 	page.main.find('.oz-tab-btn').on('click', function () {
@@ -39,25 +40,261 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 		$(this).addClass('oz-tab-active');
 		page.main.find('.oz-tab-panel').hide();
 		page.main.find('#oz-panel-' + tab).show();
+		// Show period bar only for Sales tab
+		$('#oz-period-bar').toggle(tab === 'sales');
 	});
 
-	// Period
+	// Period buttons
+	window.oz_selected_months = [];
+	window.oz_selected_qtrs = [1];
+	window.oz_selected_ytd_fys = [];
+
 	page.main.find('.oz-period-btn').on('click', function () {
 		page.main.find('.oz-period-btn').removeClass('oz-period-active');
 		$(this).addClass('oz-period-active');
 		window.oz_period = $(this).data('period');
-		if (window.oz_period === 'YTD') window.oz_months = 12;
-		else if (window.oz_period === 'QTD') window.oz_months = 3;
-		else window.oz_months = 6;
+		// Show/hide controls
+		$('#oz-month-controls').toggle(window.oz_period === 'MTD');
+		$('#oz-qtr-controls').toggle(window.oz_period === 'QTD');
+		$('#oz-ytd-controls').toggle(window.oz_period === 'YTD');
+		// Set default compare selection and show/hide vs: controls
+		oz_set_default_compare();
 		load_all_data();
 	});
 
-	// Month range slider
-	page.main.find('#oz-month-range').on('input', function () {
-		window.oz_months = parseInt($(this).val());
-		page.main.find('#oz-month-label').text(window.oz_months + ' months');
-		load_all_data();
-	});
+	// Compare dropdown handlers
+	function oz_set_default_compare() {
+		var months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+		var compareControls = document.getElementById('oz-compare-controls');
+		if (window.oz_period === 'MTD') {
+			var sel = window.oz_selected_months || [];
+			if (sel.length === 1) {
+				var prev = sel[0] - 1;
+				if (prev < 0) prev = 11;
+				oz_set_compare('oz-compare-month', String(prev));
+				window.oz_compare_month = String(prev);
+				if (compareControls) compareControls.style.display = '';
+			} else {
+				oz_set_compare('oz-compare-month', '');
+				window.oz_compare_month = '';
+				if (compareControls) compareControls.style.display = 'none';
+			}
+		} else if (window.oz_period === 'QTD') {
+			var selQ = window.oz_selected_qtrs || [];
+			if (selQ.length === 1) {
+				var prevQ = selQ[0] - 1;
+				if (prevQ < 1) prevQ = 4;
+				oz_set_compare('oz-compare-qtr', String(prevQ));
+				window.oz_compare_qtr = String(prevQ);
+				if (compareControls) compareControls.style.display = '';
+			} else {
+				oz_set_compare('oz-compare-qtr', '');
+				window.oz_compare_qtr = '';
+				if (compareControls) compareControls.style.display = 'none';
+			}
+		} else if (window.oz_period === 'YTD') {
+			var selFY = window.oz_selected_ytd_fys || [];
+			if (selFY.length === 1) {
+				var parts = selFY[0].split('_');
+				if (parts.length === 2) {
+					var s = new Date(parts[0]);
+					var prevFY = (s.getFullYear() - 1) + '-04-01_' + s.getFullYear() + '-03-31';
+					oz_set_compare('oz-compare-fy', prevFY);
+					window.oz_compare_fy = prevFY;
+				}
+				if (compareControls) compareControls.style.display = '';
+			} else {
+				oz_set_compare('oz-compare-fy', '');
+				window.oz_compare_fy = '';
+				if (compareControls) compareControls.style.display = 'none';
+			}
+		}
+		// Also show/hide the correct compare dropdown within the controls
+		$('#oz-compare-month').toggle(window.oz_period === 'MTD');
+		$('#oz-compare-qtr').toggle(window.oz_period === 'QTD');
+		$('#oz-compare-fy').toggle(window.oz_period === 'YTD');
+	}
+
+	// Populate compare month dropdown
+	function oz_populate_compare_months() {
+		var months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+		var opts = months.map(function (m, i) { return { value: String(i), label: m }; });
+		oz_init_compare('oz-compare-month', opts, function (val) {
+			window.oz_compare_month = val;
+			load_all_data();
+		});
+	}
+
+	// Populate compare quarter dropdown
+	function oz_populate_compare_qtrs() {
+		var opts = [
+			{ value: '1', label: 'Q1 (Apr-Jun)' },
+			{ value: '2', label: 'Q2 (Jul-Sep)' },
+			{ value: '3', label: 'Q3 (Oct-Dec)' },
+			{ value: '4', label: 'Q4 (Jan-Mar)' }
+		];
+		oz_init_compare('oz-compare-qtr', opts, function (val) {
+			window.oz_compare_qtr = val;
+			load_all_data();
+		});
+	}
+
+	// Populate compare FY dropdown
+	function oz_populate_compare_fys() {
+		oz_init_compare('oz-compare-fy', window.oz_fy_options || [], function (val) {
+			window.oz_compare_fy = val;
+			load_all_data();
+		});
+	}
+
+	// Initialize compare dropdowns
+	oz_populate_compare_months();
+	oz_populate_compare_qtrs();
+	oz_populate_compare_fys();
+
+	window.oz_compare_month = '';
+	window.oz_compare_qtr = '';
+	window.oz_compare_fy = '';
+
+	// Render month chips (does NOT reset selection)
+	function oz_render_month_chips() {
+		var months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+		var container = document.getElementById('oz-month-chips');
+		if (!container) return;
+		var html = '';
+		months.forEach(function (m, i) {
+			var active = window.oz_selected_months.indexOf(i) !== -1 ? 'oz-month-chip-active' : '';
+			html += '<span class="oz-month-chip ' + active + '" data-idx="' + i + '">' + m + '</span>';
+		});
+		container.innerHTML = html;
+		// Bind clicks
+		container.querySelectorAll('.oz-month-chip').forEach(function (chip) {
+			chip.addEventListener('click', function () {
+				var idx = parseInt(this.getAttribute('data-idx'));
+				var pos = window.oz_selected_months.indexOf(idx);
+				if (pos !== -1) {
+					if (window.oz_selected_months.length > 1) {
+						window.oz_selected_months.splice(pos, 1);
+					}
+				} else {
+					window.oz_selected_months.push(idx);
+				}
+				oz_render_month_chips();
+				oz_set_default_compare();
+				load_all_data();
+			});
+		});
+	}
+
+	// Init month chips (sets default selection)
+	function oz_init_month_chips() {
+		var fy = window.oz_fy;
+		var now = new Date();
+		var curMonth = now.getMonth();
+		var fyMonthIdx = (curMonth - 3 + 12) % 12;
+		if (fy !== 'All' && fy.indexOf(',') === -1) {
+			var fyParts = fy.split('_');
+			if (fyParts.length === 2) {
+				var fyStartDate = new Date(fyParts[0]);
+				var fyEndDate = new Date(fyParts[1]);
+				if (now < fyStartDate || now > fyEndDate) {
+					fyMonthIdx = 0;
+				}
+			}
+		}
+		window.oz_selected_months = [fyMonthIdx];
+		oz_render_month_chips();
+	}
+
+	// Render quarter chips (does NOT reset selection)
+	function oz_render_qtr_chips() {
+		var quarters = [
+			{ q: 1, label: 'Q1', months: 'Apr-Jun' },
+			{ q: 2, label: 'Q2', months: 'Jul-Sep' },
+			{ q: 3, label: 'Q3', months: 'Oct-Dec' },
+			{ q: 4, label: 'Q4', months: 'Jan-Mar' }
+		];
+		var container = document.getElementById('oz-qtr-chips');
+		if (!container) return;
+		var html = '';
+		quarters.forEach(function (q) {
+			var active = window.oz_selected_qtrs.indexOf(q.q) !== -1 ? 'oz-qtr-chip-active' : '';
+			html += '<span class="oz-qtr-chip ' + active + '" data-q="' + q.q + '" title="' + q.months + '">' + q.label + '</span>';
+		});
+		container.innerHTML = html;
+		// Bind clicks
+		container.querySelectorAll('.oz-qtr-chip').forEach(function (chip) {
+			chip.addEventListener('click', function () {
+				var q = parseInt(this.getAttribute('data-q'));
+				var pos = window.oz_selected_qtrs.indexOf(q);
+				if (pos !== -1) {
+					if (window.oz_selected_qtrs.length > 1) {
+						window.oz_selected_qtrs.splice(pos, 1);
+					}
+				} else {
+					window.oz_selected_qtrs.push(q);
+				}
+				oz_render_qtr_chips();
+				oz_set_default_compare();
+				load_all_data();
+			});
+		});
+	}
+
+	// Init quarter chips (sets default selection)
+	function oz_init_qtr_chips() {
+		// Determine current quarter based on FY
+		var now = new Date();
+		var curMonth = now.getMonth(); // 0-11
+		// FY month 0=Apr, 1=May, ..., 11=Mar
+		var fyMonthIdx = (curMonth - 3 + 12) % 12;
+		var curQtr = Math.floor(fyMonthIdx / 3) + 1; // 1,2,3,4
+		window.oz_selected_qtrs = [curQtr];
+		oz_render_qtr_chips();
+	}
+
+	// Render YTD FY chips (does NOT reset selection)
+	function oz_render_ytd_chips() {
+		var container = document.getElementById('oz-ytd-chips');
+		if (!container) return;
+		var fyOptions = window.oz_fy_options || [];
+		var html = '';
+		fyOptions.forEach(function (fy) {
+			var active = window.oz_selected_ytd_fys.indexOf(fy.value) !== -1 ? 'oz-month-chip-active' : '';
+			html += '<span class="oz-month-chip ' + active + '" data-fy="' + fy.value + '">' + fy.label + '</span>';
+		});
+		container.innerHTML = html;
+		// Bind clicks
+		container.querySelectorAll('.oz-month-chip').forEach(function (chip) {
+			chip.addEventListener('click', function () {
+				var fy = this.getAttribute('data-fy');
+				var pos = window.oz_selected_ytd_fys.indexOf(fy);
+				if (pos !== -1) {
+					if (window.oz_selected_ytd_fys.length > 1) {
+						window.oz_selected_ytd_fys.splice(pos, 1);
+					}
+				} else {
+					window.oz_selected_ytd_fys.push(fy);
+				}
+				oz_render_ytd_chips();
+				oz_set_default_compare();
+				load_all_data();
+			});
+		});
+	}
+
+	// Init YTD FY chips (sets default selection)
+	function oz_init_ytd_chips() {
+		window.oz_selected_ytd_fys = [window.oz_fy];
+		oz_render_ytd_chips();
+	}
+
+	// Init all period controls
+	oz_init_month_chips();
+	oz_init_qtr_chips();
+	oz_init_ytd_chips();
+	// Set default compare on page load
+	oz_set_default_compare();
 
 	// Init company multi-select
 	oz_init_multi('oz-ms-company', [
@@ -87,6 +324,9 @@ frappe.pages['oil-command-center'].on_page_load = function (wrapper) {
 		var allSelected = selected.length === 0 || selected.length === allFy.length;
 		window.oz_fy = allSelected ? 'All' : selected.join(',');
 		oz_update_filter_tag();
+		// Re-init period controls for new FY
+		if (window.oz_period === 'MTD') oz_init_month_chips();
+		if (window.oz_period === 'YTD') oz_init_ytd_chips();
 		load_all_data();
 	}, [curFYValue]);
 
@@ -107,28 +347,36 @@ function get_dashboard_html() {
 	<style>
 		#page-oil-command-center .page-body { padding: 0 !important; background: #f0f2f5; }
 		.oz { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 16px 20px; }
-		.page-body { overflow-y: auto !important; }
 		.oz * { box-sizing: border-box; }
 
 		.oz-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,20,40,0.04); }
 
+		.top-bars { position: sticky; top: var(--page-head-height, 48px); z-index: 50; background: #f0f4f8; border-radius: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; padding: 6px; }
+
 		/* Bar */
-		.oz-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 14px; flex-wrap: wrap; position: sticky; top: 0; }
+		.oz-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; flex-wrap: wrap; }
 		.oz-bar label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; display: flex; align-items: center; line-height: 1; margin: 0; }
 		.oz-bar select { padding: 5px 26px 5px 8px; border-radius: 7px; border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; }
 		.oz-bar select:focus { outline: none; border-color: #3b82f6; }
 		.oz-filter-tag { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #eff6ff; color: #3b82f6; white-space: nowrap; }
 
 		/* Tabs */
-		.oz-tabs { display: flex; gap: 2px; margin-bottom: 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 4px; width: fit-content; }
-		.oz-tab-btn { padding: 7px 18px; border-radius: 8px; border: none; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+		.oz-tabs { display: flex; gap: 2px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 3px; width: fit-content; }
+		.oz-tab-btn { padding: 6px 16px; border-radius: 8px; border: none; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
 		.oz-tab-btn:hover { color: #475569; background: #f8fafc; }
 		.oz-tab-active { background: #3b82f6 !important; color: #fff !important; }
-
 		/* Period */
+		.oz-period-bar { }
 		.oz-period-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 9px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
 		.oz-period-btn:hover { border-color: #3b82f6; color: #3b82f6; }
 		.oz-period-active { background: #3b82f6 !important; color: #fff !important; border-color: #3b82f6 !important; }
+		.oz-period-controls { display: flex; align-items: center; gap: 8px; margin-left: 16px; }
+		.oz-month-chip { padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 9px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+		.oz-month-chip:hover { border-color: #3b82f6; color: #3b82f6; }
+		.oz-month-chip-active { background: #dbeafe !important; color: #3b82f6 !important; border-color: #3b82f6 !important; }
+		.oz-qtr-chip { padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 9px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+		.oz-qtr-chip:hover { border-color: #3b82f6; color: #3b82f6; }
+		.oz-qtr-chip-active { background: #d1fae5 !important; color: #059669 !important; border-color: #059669 !important; }
 
 		/* KPI */
 		.oz-kpi-row { display: grid; gap: 10px; margin-bottom: 14px; }
@@ -156,6 +404,35 @@ function get_dashboard_html() {
 		.oz-table tr { cursor: pointer; transition: background 0.15s; }
 		.oz-table tr:hover { background: #f1f5f9; }
 
+		/* Compare single-select dropdown */
+		.oz-cs { position: relative; display: inline-block; }
+		.oz-cs-btn {
+			display: flex; align-items: center; gap: 6px;
+			padding: 4px 24px 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0;
+			background: #f8fafc; color: #64748b; font-size: 9px; font-weight: 700;
+			cursor: pointer; min-width: 80px; white-space: nowrap;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E");
+			background-repeat: no-repeat; background-position: right 8px center;
+			transition: all 0.2s;
+		}
+		.oz-cs-btn:hover { border-color: #3b82f6; color: #3b82f6; background-color: #fff; }
+		.oz-cs-btn.oz-cs-open { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); background-color: #fff; color: #1e293b; }
+		.oz-cs-panel {
+			display: none; position: fixed; z-index: 9999;
+			min-width: 140px; max-height: 240px; overflow-y: auto;
+			background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+			box-shadow: 0 8px 24px rgba(0,20,40,0.12); padding: 4px;
+		}
+		.oz-cs-panel.oz-cs-show { display: block; }
+		.oz-cs-opt {
+			display: flex; align-items: center; padding: 6px 10px;
+			border-radius: 6px; cursor: pointer; transition: background 0.1s;
+			font-size: 10px; font-weight: 600; color: #475569;
+		}
+		.oz-cs-opt:hover { background: #f1f5f9; color: #1e293b; }
+		.oz-cs-opt.oz-cs-selected { background: #eff6ff; color: #3b82f6; font-weight: 700; }
+		.oz-period-label { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+
 		.oz-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
 		.oz-link { font-size: 10px; font-weight: 600; color: #3b82f6; cursor: pointer; text-decoration: none; }
 		.oz-link:hover { text-decoration: underline; }
@@ -178,10 +455,8 @@ function get_dashboard_html() {
 		.oz-tl-dot { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; position: relative; z-index: 1; }
 
 		/* Tooltip */
-		.oz-tip { position: absolute; background: #1e293b; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 10px; pointer-events: none; z-index: 200; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2); transform: translateX(-50%); opacity: 0; transition: opacity 0.15s; }
+		.oz-tip { position: fixed; background: #1e293b; color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 10px; pointer-events: none; z-index: 9999; white-space: nowrap; box-shadow: 0 12px 32px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); opacity: 0; transition: opacity 0.15s; }
 		.oz-tip.show { opacity: 1; }
-		.oz-tip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #1e293b; }
-
 		/* Progress bar */
 		.oz-prog { height: 4px; border-radius: 4px; background: #f1f5f9; overflow: hidden; }
 		.oz-prog-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
@@ -216,7 +491,7 @@ function get_dashboard_html() {
 		.oz-ms-btn.oz-ms-open { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 		.oz-ms-btn .oz-ms-count { background: #059669; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
 		.oz-ms-panel {
-			display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+			display: none; position: fixed; z-index: 9999;
 			min-width: 220px; max-height: 280px; overflow-y: auto;
 			background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
 			box-shadow: 0 8px 24px rgba(0,20,40,0.12); padding: 6px;
@@ -245,6 +520,7 @@ function get_dashboard_html() {
 
 	<div class="oz">
 		<!-- FILTERS -->
+		<div class="top-bars">
 		<div class="oz-bar oz-anim">
 			<label>Company</label>
 			<div id="oz-ms-company" class="oz-ms"></div>
@@ -265,48 +541,85 @@ function get_dashboard_html() {
 			<button class="oz-tab-btn" data-tab="ict">Inter Company Transfer</button>
 			<button class="oz-tab-btn" data-tab="reservations">Reservations</button>
 		</div>
-
+		<!-- Period Selector -->
+		<div id="oz-period-bar" class="oz-bar oz-period-bar oz-anim" style="animation-delay:0.06s;">
+			<label>Period</label>
+			<button class="oz-period-btn oz-period-active" data-period="MTD">MTD</button>
+			<button class="oz-period-btn" data-period="QTD">QTD</button>
+			<button class="oz-period-btn" data-period="YTD">YTD</button>
+			<!-- MTD: Month chips (Apr-Mar of FY) -->
+			<div id="oz-month-controls" class="oz-period-controls">
+				<span class="oz-period-label">Months:</span>
+				<div id="oz-month-chips" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+			</div>
+			<!-- QTD: Quarter chips -->
+			<div id="oz-qtr-controls" class="oz-period-controls" style="display:none;">
+				<span class="oz-period-label">Quarters:</span>
+				<div id="oz-qtr-chips" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+			</div>
+			<!-- YTD: FY selector (only if multiple FYs) -->
+			<div id="oz-ytd-controls" class="oz-period-controls" style="display:none;">
+				<span class="oz-period-label">FY:</span>
+				<div id="oz-ytd-chips" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+			</div>
+			<!-- Compare With selector -->
+			<div id="oz-compare-controls" class="oz-period-controls" style="display:flex;align-items:center;gap:8px;">
+				<span class="oz-period-label">vs:</span>
+				<div id="oz-compare-month" class="oz-cs"></div>
+				<div id="oz-compare-qtr" class="oz-cs" style="display:none;"></div>
+				<div id="oz-compare-fy" class="oz-cs" style="display:none;"></div>
+			</div>
+		</div>
+</div>
 		<!-- ═══ PANEL 1: SALES & PROCUREMENT ═══ -->
 		<div id="oz-panel-sales" class="oz-tab-panel">
 
-			<!-- Period Selector + Month Range -->
-			<div class="oz-bar oz-anim" style="animation-delay:0.06s;margin-bottom:12px;">
-				<label>Period</label>
-				<button class="oz-period-btn oz-period-active" data-period="MTD">MTD</button>
-				<button class="oz-period-btn" data-period="QTD">QTD</button>
-				<button class="oz-period-btn" data-period="YTD">YTD</button>
-				<div style="margin-left:16px;display:flex;align-items:center;gap:6px;">
-					<label>Months</label>
-					<input id="oz-month-range" type="range" min="3" max="12" value="6" style="width:80px;accent-color:#3b82f6;">
-					<span id="oz-month-label" style="font-size:10px;font-weight:700;color:#334155;">6 months</span>
-				</div>
-			</div>
-
-			<!-- KPIs with sparklines -->
+			<!-- KPIs with company breakdown -->
 			<div class="oz-kpi-row oz-kpi-row-3 oz-anim" style="animation-delay:0.08s">
-				<div class="oz-kpi-card" onclick="frappe.set_route('List','Sales Invoice')">
-					<div class="oz-kpi-icon" style="background:#dbeafe;color:#3b82f6;">₹</div>
-					<div class="oz-kpi-info">
-						<div class="oz-kpi-val" id="oz-kpi-sales" style="color:#3b82f6;">--</div>
-						<div class="oz-kpi-lbl">Sales <span id="oz-period-sales" style="color:#3b82f6;">MTD</span></div>
+				<!-- Sales Card -->
+				<div class="oz-kpi-card" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="frappe.set_route('List','Sales Invoice')">
+					<div style="display:flex;align-items:center;gap:12px;">
+						<div class="oz-kpi-icon" style="background:#dbeafe;color:#3b82f6;">₹</div>
+						<div class="oz-kpi-info">
+							<div style="display:flex;align-items:center;gap:6px;">
+								<div class="oz-kpi-val" id="oz-kpi-sales" style="color:#3b82f6;">--</div>
+								<span id="oz-kpi-sales-change" style="font-size:9px;font-weight:700;"></span>
+							</div>
+							<div class="oz-kpi-lbl">Sales <span id="oz-period-sales" style="color:#3b82f6;">MTD</span></div>
+						</div>
 						<div class="oz-kpi-spark" id="oz-spark-sales"></div>
 					</div>
+					<div id="oz-sales-breakdown" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
 				</div>
-				<div class="oz-kpi-card" onclick="frappe.set_route('List','Purchase Invoice')">
-					<div class="oz-kpi-icon" style="background:#d1fae5;color:#059669;">₹</div>
-					<div class="oz-kpi-info">
-						<div class="oz-kpi-val" id="oz-kpi-proc" style="color:#059669;">--</div>
-						<div class="oz-kpi-lbl">Procurement <span id="oz-period-proc" style="color:#059669;">MTD</span></div>
+				<!-- Procurement Card -->
+				<div class="oz-kpi-card" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="frappe.set_route('List','Purchase Invoice')">
+					<div style="display:flex;align-items:center;gap:12px;">
+						<div class="oz-kpi-icon" style="background:#d1fae5;color:#059669;">₹</div>
+						<div class="oz-kpi-info">
+							<div style="display:flex;align-items:center;gap:6px;">
+								<div class="oz-kpi-val" id="oz-kpi-proc" style="color:#059669;">--</div>
+								<span id="oz-kpi-proc-change" style="font-size:9px;font-weight:700;"></span>
+							</div>
+							<div class="oz-kpi-lbl">Procurement <span id="oz-period-proc" style="color:#059669;">MTD</span></div>
+						</div>
 						<div class="oz-kpi-spark" id="oz-spark-proc"></div>
 					</div>
+					<div id="oz-proc-breakdown" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
 				</div>
-				<div class="oz-kpi-card" onclick="frappe.set_route('Profit and Loss Statement')">
-					<div class="oz-kpi-icon" id="oz-kpi-pl-icon" style="background:#fef3c7;color:#d97706;">₹</div>
-					<div class="oz-kpi-info">
-						<div class="oz-kpi-val" id="oz-kpi-pl" style="color:#d97706;">--</div>
-						<div class="oz-kpi-lbl">Profit / Loss <span id="oz-period-pl" style="color:#d97706;">MTD</span></div>
+				<!-- Profit/Loss Card -->
+				<div class="oz-kpi-card" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="frappe.set_route('Profit and Loss Statement')">
+					<div style="display:flex;align-items:center;gap:12px;">
+						<div class="oz-kpi-icon" id="oz-kpi-pl-icon" style="background:#fef3c7;color:#d97706;">₹</div>
+						<div class="oz-kpi-info">
+							<div style="display:flex;align-items:center;gap:6px;">
+								<div class="oz-kpi-val" id="oz-kpi-pl" style="color:#d97706;">--</div>
+								<span id="oz-kpi-pl-change" style="font-size:9px;font-weight:700;"></span>
+							</div>
+							<div class="oz-kpi-lbl">Profit / Loss <span id="oz-period-pl" style="color:#d97706;">MTD</span></div>
+						</div>
 						<div class="oz-kpi-spark" id="oz-spark-pl"></div>
 					</div>
+					<div id="oz-pl-breakdown" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
 				</div>
 			</div>
 
@@ -316,7 +629,7 @@ function get_dashboard_html() {
 					<div class="oz-chart-icon" style="background:#dbeafe;color:#3b82f6;">📊</div>
 					<div style="flex:1;">
 						<div class="oz-chart-title">Monthly Sales vs Procurement</div>
-						<div class="oz-chart-sub">Click a bar to drill into that month</div>
+						<div class="oz-chart-sub">Hover for details</div>
 					</div>
 				</div>
 				<div id="oz-bar-chart" style="position:relative;min-height:240px;"></div>
@@ -595,12 +908,12 @@ function oz_init_multi(containerId, options, onChange, defaultSelected) {
 
 	var panel = document.createElement('div');
 	panel.className = 'oz-ms-panel';
-	container.appendChild(panel);
+	panel._container = container;
+	document.body.appendChild(panel);
+	container._panel = panel;
 
-	// Close on outside click (blocked if no item selected)
 	document.addEventListener('click', function (e) {
-		if (!container.contains(e.target)) {
-			if (container._selected.length === 0) return;
+		if (!container.contains(e.target) && !panel.contains(e.target)) {
 			panel.classList.remove('oz-ms-show');
 			btn.classList.remove('oz-ms-open');
 		}
@@ -609,12 +922,14 @@ function oz_init_multi(containerId, options, onChange, defaultSelected) {
 	btn.addEventListener('click', function (e) {
 		e.stopPropagation();
 		var isOpen = panel.classList.contains('oz-ms-show');
-		// Close all other panels
 		document.querySelectorAll('.oz-ms-panel').forEach(function (p) { p.classList.remove('oz-ms-show'); });
 		document.querySelectorAll('.oz-ms-btn').forEach(function (b) { b.classList.remove('oz-ms-open'); });
 		if (!isOpen) {
 			panel.classList.add('oz-ms-show');
 			btn.classList.add('oz-ms-open');
+			var rect = btn.getBoundingClientRect();
+			panel.style.left = rect.left + 'px';
+			panel.style.top = (rect.bottom + 4) + 'px';
 			oz_render_ms_panel(container);
 		}
 	});
@@ -624,7 +939,7 @@ function oz_init_multi(containerId, options, onChange, defaultSelected) {
 }
 
 function oz_render_ms_panel(container) {
-	var panel = container.querySelector('.oz-ms-panel');
+	var panel = container._panel || document.querySelector('.oz-ms-panel');
 	var options = container._options || [];
 	var selected = container._selected;
 
@@ -665,18 +980,20 @@ function oz_render_ms_panel(container) {
 	panel.querySelectorAll('.oz-ms-action').forEach(function (btn) {
 		btn.addEventListener('click', function (e) {
 			e.preventDefault();
+			e.stopPropagation();
 			var action = this.getAttribute('data-action');
 			if (action === 'all') {
 				container._selected = container._options.map(function (o) { return o.value; });
 			} else {
-				container._selected = [];
+				if (container._selected.length <= 1) {
+					var errEl = panel.querySelector('.oz-ms-error');
+					if (errEl) { errEl.style.display = 'block'; setTimeout(function () { errEl.style.display = 'none'; }, 2000); }
+					return;
+				}
+				container._selected = [container._selected[0]];
 			}
 			oz_update_ms_btn(container);
 			oz_render_ms_panel(container);
-			if (action !== 'all' && container._selected.length === 0) {
-				var errEl = panel.querySelector('.oz-ms-error');
-				if (errEl) errEl.style.display = 'block';
-			}
 			if (container._onChange) container._onChange(container._selected);
 		});
 	});
@@ -731,6 +1048,83 @@ function oz_update_options(containerId, options) {
 	if (container._onChange) container._onChange(container._selected);
 }
 
+/* ═══════════ SINGLE-SELECT COMPARE DROPDOWN ═══════════ */
+
+function oz_init_compare(containerId, options, onChange, defaultVal) {
+	var container = document.getElementById(containerId);
+	if (!container) return;
+	container._options = options || [];
+	container._value = defaultVal || '';
+	container._onChange = onChange;
+
+	var btn = document.createElement('div');
+	btn.className = 'oz-cs-btn';
+	container.appendChild(btn);
+
+	var panel = document.createElement('div');
+	panel.className = 'oz-cs-panel';
+	panel._container = container;
+	document.body.appendChild(panel);
+	container._panel = panel;
+
+	document.addEventListener('click', function (e) {
+		if (!container.contains(e.target) && !panel.contains(e.target)) {
+			panel.classList.remove('oz-cs-show');
+			btn.classList.remove('oz-cs-open');
+		}
+	});
+
+	btn.addEventListener('click', function (e) {
+		e.stopPropagation();
+		var isOpen = panel.classList.contains('oz-cs-show');
+		document.querySelectorAll('.oz-cs-panel').forEach(function (p) { p.classList.remove('oz-cs-show'); });
+		document.querySelectorAll('.oz-cs-btn').forEach(function (b) { b.classList.remove('oz-cs-open'); });
+		if (!isOpen) {
+			panel.classList.add('oz-cs-show');
+			btn.classList.add('oz-cs-open');
+			var rect = btn.getBoundingClientRect();
+			panel.style.left = rect.left + 'px';
+			panel.style.top = (rect.bottom + 4) + 'px';
+		}
+	});
+
+	oz_render_cs_panel(container);
+}
+
+function oz_render_cs_panel(container) {
+	var panel = container._panel || document.querySelector('.oz-cs-panel');
+	var btn = container.querySelector('.oz-cs-btn');
+	var options = container._options || [];
+	var value = container._value;
+
+	var selectedOpt = options.find(function (o) { return o.value === value; });
+	btn.textContent = selectedOpt ? selectedOpt.label : 'None';
+
+	var html = '<div class="oz-cs-opt' + (value === '' ? ' oz-cs-selected' : '') + '" data-value="">None</div>';
+	options.forEach(function (opt) {
+		var cls = opt.value === value ? ' oz-cs-selected' : '';
+		html += '<div class="oz-cs-opt' + cls + '" data-value="' + opt.value + '">' + opt.label + '</div>';
+	});
+	panel.innerHTML = html;
+
+	panel.querySelectorAll('.oz-cs-opt').forEach(function (el) {
+		el.addEventListener('click', function () {
+			container._value = this.getAttribute('data-value');
+			oz_render_cs_panel(container);
+			panel.classList.remove('oz-cs-show');
+			btn.classList.remove('oz-cs-open');
+			if (container._onChange) container._onChange(container._value);
+		});
+	});
+}
+
+function oz_set_compare(containerId, value) {
+	var container = document.getElementById(containerId);
+	if (!container) return;
+	container._value = value || '';
+	oz_render_cs_panel(container);
+}
+
 /* ═══════════ UTILITIES ═══════════ */
 
 function oz_k(v) { v = parseFloat(v) || 0; if (Math.abs(v) >= 1000) return '₹' + (v / 1000).toFixed(1) + 'K'; return '₹' + v.toFixed(0); }
@@ -759,29 +1153,77 @@ function oz_sparkline(el, values, color) {
 	el.innerHTML = s;
 }
 
-/* ═══════════ INTERACTIVE BAR CHART ═══════════ */
+function oz_sparkline_with_pct(el, values, color, prevVal) {
+	if (!values || values.length < 2) { el.innerHTML = ''; return; }
+	var w = 60, h = 18, p = 2;
+	var mx = Math.max.apply(null, values) || 1;
+	var pts = values.map(function (v, i) { return { x: p + (i / (values.length - 1)) * (w - 2 * p), y: p + (h - 2 * p) - (v / mx) * (h - 2 * p) }; });
+	var path = pts.map(function (q, i) { return (i === 0 ? 'M' : 'L') + ' ' + q.x.toFixed(1) + ' ' + q.y.toFixed(1); }).join(' ');
+	var area = path + ' L ' + pts[pts.length - 1].x.toFixed(1) + ' ' + (h - p) + ' L ' + pts[0].x.toFixed(1) + ' ' + (h - p) + ' Z';
+	var gid = 'sp-' + Math.random().toString(36).substr(2, 6);
+	var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '" class="oz-spark">';
+	s += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.3"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0.05"/></linearGradient></defs>';
+	s += '<path d="' + area + '" fill="url(#' + gid + ')"/>';
+	s += '<path d="' + path + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round"/>';
+	s += '<circle cx="' + pts[pts.length - 1].x.toFixed(1) + '" cy="' + pts[pts.length - 1].y.toFixed(1) + '" r="2.5" fill="' + color + '"/>';
+	s += '</svg>';
+	// Add percentage change next to sparkline
+	if (prevVal !== null && prevVal !== undefined && prevVal !== 0) {
+		var currVal = values[values.length - 1];
+		var change = ((currVal - prevVal) / Math.abs(prevVal)) * 100;
+		change = Math.max(-999, Math.min(999, change));
+		var changeRound = Math.round(change * 10) / 10;
+		var pctColor = changeRound >= 0 ? '#059669' : '#dc2626';
+		var arrow = changeRound >= 0 ? '↑' : '↓';
+		s += '<span style="font-size:9px;font-weight:700;color:' + pctColor + ';margin-left:4px;white-space:nowrap;">' + (changeRound >= 0 ? '+' : '') + changeRound + '%' + arrow + '</span>';
+	}
+	el.innerHTML = s;
+}
 
-function oz_build_bar_chart(container, tooltip, labels, sales, purchase) {
+/* ═══════════ STACKED BAR CHART WITH VARIANCE ═══════════ */
+
+function oz_build_stacked_bar(container, tooltip, labels, sales, purchase, variance, variance_change) {
 	if (!labels || !labels.length) { container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">No data</div>'; return; }
 
-	var W = 700, H = 230, P = { t: 20, r: 20, b: 40, l: 55 };
+	// Use container width for full-width chart
+	var containerW = container.offsetWidth || 700;
+	var W = Math.max(containerW, 400);
+	var H = 260, P = { t: 20, r: 20, b: 50, l: 55 };
 	var cw = W - P.l - P.r, ch = H - P.t - P.b;
-	var all = sales.concat(purchase);
-	var mx = Math.max.apply(null, all) * 1.15 || 1;
 	var n = labels.length;
 	var groupW = cw / n;
-	var barW = Math.min(groupW * 0.3, 30);
+	var barW = Math.min(groupW * 0.5, Math.max(20, Math.min(40, cw / n * 0.4)));
+
+	// Calculate stacked totals for Y-axis scaling
+	var totals = [];
+	for (var i = 0; i < n; i++) {
+		totals.push((sales[i] || 0) + (purchase[i] || 0));
+	}
+	var mx = Math.max.apply(null, totals) * 1.15 || 1;
+
+	// Variance range
+	var varMin = 0, varMax = 0;
+	if (variance && variance.length) {
+		varMin = Math.min.apply(null, variance);
+		varMax = Math.max.apply(null, variance);
+		var range = Math.max(Math.abs(varMin), Math.abs(varMax)) * 1.2 || 1;
+		varMin = -range;
+		varMax = range;
+	}
 
 	function yScale(v) { return P.t + ch - (v / mx) * ch; }
+	function varScale(v) { return P.t + ch - ((v - varMin) / (varMax - varMin || 1)) * ch; }
 
 	var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:' + H + 'px;">';
 
 	// Defs
 	s += '<defs>';
 	s += '<filter id="barShadow"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.1"/></filter>';
+	s += '<linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>';
+	s += '<linearGradient id="procGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#059669"/></linearGradient>';
 	s += '</defs>';
 
-	// Grid
+	// Grid lines
 	for (var g = 0; g <= 5; g++) {
 		var gy = P.t + (g / 5) * ch;
 		var val = Math.round(mx * (1 - g / 5));
@@ -789,62 +1231,103 @@ function oz_build_bar_chart(container, tooltip, labels, sales, purchase) {
 		s += '<text x="' + (P.l - 8) + '" y="' + (gy + 3) + '" text-anchor="end" fill="#94a3b8" font-size="8" font-weight="600">' + oz_k(val) + '</text>';
 	}
 
-	// Bars
+	// Stacked bars
 	labels.forEach(function (l, i) {
 		var cx = P.l + i * groupW + groupW / 2;
-		var sx = cx - barW - 3;
-		var px = cx + 3;
 		var sv = sales[i] || 0, pv = purchase[i] || 0;
-		var sh = Math.max(1, (sv / mx) * ch), ph = Math.max(1, (pv / mx) * ch);
+		var sh = Math.max(1, (sv / mx) * ch);
+		var ph = Math.max(1, (pv / mx) * ch);
+		var totalH = sh + ph;
 
-		// Sales bar with hover rect
+		// Sales (bottom)
+		var salesY = P.t + ch - sh;
 		s += '<g class="oz-bar-group" data-idx="' + i + '" data-type="sales">';
-		s += '<rect x="' + sx + '" y="' + yScale(sv) + '" width="' + barW + '" height="' + sh + '" rx="3" fill="#3b82f6" opacity="0.8" filter="url(#barShadow)" style="transition:opacity 0.15s;cursor:pointer;"/>';
-		s += '<rect x="' + sx + '" y="' + (P.t) + '" width="' + barW + '" height="' + ch + '" fill="transparent" style="cursor:pointer;"/>';
+		s += '<rect x="' + (cx - barW / 2) + '" y="' + salesY + '" width="' + barW + '" height="' + sh + '" rx="0" fill="url(#salesGrad)" opacity="0.9" filter="url(#barShadow)" style="transition:opacity 0.15s;cursor:pointer;"/>';
+		s += '<rect x="' + (cx - barW / 2) + '" y="' + (P.t) + '" width="' + barW + '" height="' + ch + '" fill="transparent" style="cursor:pointer;"/>';
 		s += '</g>';
 
-		// Procurement bar
+		// Procurement (top, stacked on sales)
+		var procY = salesY - ph;
 		s += '<g class="oz-bar-group" data-idx="' + i + '" data-type="purchase">';
-		s += '<rect x="' + px + '" y="' + yScale(pv) + '" width="' + barW + '" height="' + ph + '" rx="3" fill="#10b981" opacity="0.8" filter="url(#barShadow)" style="transition:opacity 0.15s;cursor:pointer;"/>';
-		s += '<rect x="' + px + '" y="' + (P.t) + '" width="' + barW + '" height="' + ch + '" fill="transparent" style="cursor:pointer;"/>';
+		s += '<rect x="' + (cx - barW / 2) + '" y="' + procY + '" width="' + barW + '" height="' + ph + '" rx="3" fill="url(#procGrad)" opacity="0.9" filter="url(#barShadow)" style="transition:opacity 0.15s;cursor:pointer;"/>';
+		s += '<rect x="' + (cx - barW / 2) + '" y="' + (P.t) + '" width="' + barW + '" height="' + ch + '" fill="transparent" style="cursor:pointer;"/>';
 		s += '</g>';
 
 		// Month label
-		s += '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" fill="#64748b" font-size="9" font-weight="700">' + l + '</text>';
+		s += '<text x="' + cx + '" y="' + (H - 28) + '" text-anchor="middle" fill="#64748b" font-size="9" font-weight="700">' + l + '</text>';
 
-		// Value on top
-		if (sv > 0) s += '<text x="' + (sx + barW / 2) + '" y="' + (yScale(sv) - 5) + '" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700" opacity="0">' + oz_k(sv) + '</text>';
-		if (pv > 0) s += '<text x="' + (px + barW / 2) + '" y="' + (yScale(pv) - 5) + '" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700" opacity="0">' + oz_k(pv) + '</text>';
+		// Variance indicator (line + dot)
+		if (variance && variance[i] !== undefined) {
+			var vY = varScale(variance[i]);
+			var vColor = variance[i] >= 0 ? '#059669' : '#dc2626';
+			var vPct = sv > 0 ? ((variance[i] / sv) * 100).toFixed(1) : '0.0';
+			// Horizontal dashed line at zero
+			if (i === 0) {
+				var zeroY = varScale(0);
+				s += '<line x1="' + P.l + '" y1="' + zeroY + '" x2="' + (W - P.r) + '" y2="' + zeroY + '" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="4,4"/>';
+			}
+			s += '<circle cx="' + cx + '" cy="' + vY + '" r="4" fill="' + vColor + '" opacity="0.9" filter="url(#barShadow)">';
+			s += '<title>Variance: ' + (variance[i] >= 0 ? '+' : '') + oz_k(variance[i]) + ' (' + vPct + '%)</title></circle>';
+			// Connect to previous point with line
+			if (i > 0 && variance[i - 1] !== undefined) {
+				var prevX = P.l + (i - 1) * groupW + groupW / 2;
+				var prevY = varScale(variance[i - 1]);
+				s += '<line x1="' + prevX + '" y1="' + prevY + '" x2="' + cx + '" y2="' + vY + '" stroke="' + vColor + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5"/>';
+			}
+			// MoM Change label (N/A for first, then show change %)
+			if (variance_change && variance_change[i] !== null && variance_change[i] !== undefined) {
+				var change = variance_change[i];
+				var changeColor = change >= 0 ? '#059669' : '#dc2626';
+				var changeArrow = change >= 0 ? '↑' : '↓';
+				s += '<text x="' + cx + '" y="' + (H - 14) + '" text-anchor="middle" fill="' + changeColor + '" font-size="8" font-weight="700">' + (change >= 0 ? '+' : '') + change + '%' + changeArrow + '</text>';
+			} else {
+				s += '<text x="' + cx + '" y="' + (H - 14) + '" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600">N/A</text>';
+			}
+		}
+
+		// Total on top of stack
+		s += '<text x="' + cx + '" y="' + (procY - 5) + '" text-anchor="middle" fill="#1e293b" font-size="7" font-weight="700">' + oz_k(sv + pv) + '</text>';
 	});
 
 	s += '</svg>';
 
 	// Legend
-	s += '<div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">';
+	s += '<div style="display:flex;gap:16px;justify-content:center;margin-top:8px;">';
 	s += '<div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:3px;background:#3b82f6;"></div><span style="font-size:10px;font-weight:600;color:#64748b;">Sales</span></div>';
 	s += '<div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:3px;background:#10b981;"></div><span style="font-size:10px;font-weight:600;color:#64748b;">Procurement</span></div>';
+	s += '<div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:50%;background:#059669;"></div><span style="font-size:10px;font-weight:600;color:#64748b;">Variance</span></div>';
 	s += '</div>';
 
 	container.innerHTML = s;
 
-	// Tooltip logic
+	// Tooltip logic - shows Sales, Procurement, Variance, and MoM Change in one tooltip
 	var tip = tooltip;
 	container.querySelectorAll('.oz-bar-group').forEach(function (g) {
 		g.addEventListener('mouseenter', function (e) {
 			var idx = parseInt(g.getAttribute('data-idx'));
-			var type = g.getAttribute('data-type');
-			var val = type === 'sales' ? sales[idx] : purchase[idx];
-			var label = type === 'sales' ? 'Sales' : 'Procurement';
-			var color = type === 'sales' ? '#3b82f6' : '#10b981';
-			tip.innerHTML = '<div style="font-weight:800;color:' + color + ';">' + oz_k(val) + '</div><div style="color:#94a3b8;margin-top:2px;">' + label + ' · ' + labels[idx] + '</div>';
+			var sv = sales[idx] || 0;
+			var pv = purchase[idx] || 0;
+			var v = variance && variance[idx] !== undefined ? variance[idx] : sv - pv;
+			var vPct = sv > 0 ? ((v / sv) * 100).toFixed(1) : '0.0';
+			var vColor = v >= 0 ? '#059669' : '#dc2626';
+			tip.innerHTML = '<div style="font-size:10px;font-weight:700;color:#1e293b;margin-bottom:4px;">' + labels[idx] + '</div>' +
+				'<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;"><div style="width:6px;height:6px;border-radius:2px;background:#3b82f6;"></div><span style="font-size:9px;color:#64748b;">Sales</span><span style="font-size:10px;font-weight:700;color:#3b82f6;margin-left:auto;">' + oz_k(sv) + '</span></div>' +
+				'<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;"><div style="width:6px;height:6px;border-radius:2px;background:#10b981;"></div><span style="font-size:9px;color:#64748b;">Procurement</span><span style="font-size:10px;font-weight:700;color:#10b981;margin-left:auto;">' + oz_k(pv) + '</span></div>' +
+				'<div style="border-top:1px solid #e2e8f0;margin-top:3px;padding-top:3px;display:flex;align-items:center;gap:5px;"><div style="width:6px;height:6px;border-radius:50%;background:' + vColor + ';"></div><span style="font-size:9px;color:#64748b;">Variance</span><span style="font-size:10px;font-weight:700;color:' + vColor + ';margin-left:auto;">' + (v >= 0 ? '+' : '') + oz_k(v) + ' (' + vPct + '%)</span></div>';
+			// MoM Change
+			if (variance_change && variance_change[idx] !== null && variance_change[idx] !== undefined) {
+				var change = variance_change[idx];
+				var changeColor = change >= 0 ? '#059669' : '#dc2626';
+				var changeArrow = change >= 0 ? '↑' : '↓';
+				tip.innerHTML += '<div style="display:flex;align-items:center;gap:5px;margin-top:3px;"><span style="font-size:9px;color:#94a3b8;">vs Previous</span><span style="font-size:10px;font-weight:700;color:' + changeColor + ';margin-left:auto;">' + (change >= 0 ? '+' : '') + change + '% ' + changeArrow + '</span></div>';
+			} else {
+				tip.innerHTML += '<div style="display:flex;align-items:center;gap:5px;margin-top:3px;"><span style="font-size:9px;color:#94a3b8;">vs Previous</span><span style="font-size:10px;font-weight:700;color:#94a3b8;margin-left:auto;">N/A</span></div>';
+			}
 			var rect = g.getBoundingClientRect();
-			var cRect = container.getBoundingClientRect();
-			tip.style.left = (rect.left - cRect.left + rect.width / 2) + 'px';
-			tip.style.top = (rect.top - cRect.top - 50) + 'px';
+			tip.style.left = (rect.left + rect.width / 2) + 'px';
+			tip.style.top = (rect.top - 12) + 'px';
+			tip.style.transform = 'translateX(-50%) translateY(-100%)';
 			tip.classList.add('show');
-			// Highlight value text
-			var texts = container.querySelectorAll('text');
-			var txtIdx = idx * 2 + (type === 'purchase' ? 1 : 0);
 		});
 		g.addEventListener('mouseleave', function () {
 			tip.classList.remove('show');
@@ -1038,18 +1521,31 @@ function load_all_data() {
 	var co = window.oz_company;
 	var item = window.oz_item;
 	var period = window.oz_period;
-	var months = window.oz_months;
 
 	oz_update_filter_tag();
 
 	// Update period labels
-			$('#oz-period-sales,#oz-period-proc,#oz-period-pl').text(period);
+	$('#oz-period-sales,#oz-period-proc,#oz-period-pl').text(period);
 
 			$('#oz-kpi-sales,#oz-kpi-proc,#oz-kpi-avail,#oz-kpi-reserved,#oz-kpi-neg,#oz-kpi-pl,#oz-kpi-ict2,#oz-kpi-ict-count,#oz-kpi-ict-val,#oz-kpi-reserved2,#oz-kpi-resqty,#oz-kpi-res-val,#oz-kpi-res-items,#oz-kpi-res-util,#oz-kpi-res-companies').text('--');
+			$('#oz-kpi-sales-change,#oz-kpi-proc-change,#oz-kpi-pl-change').text('').css('color', '');
+			window.oz_kpi_data = {};
 			$('#oz-bar-chart,#oz-monthly-table,#oz-chart-donut,#oz-funnel-content,#oz-ring,#oz-mini-stats,#oz-table-res,#oz-table-ict,#oz-table-neg,#oz-activity,#oz-top-items,#oz-top-customers,#oz-company-compare,#oz-ict-chain,#oz-warehouse-table,#oz-routes-breakdown,#oz-routes-breakdown,#oz-res-by-company').html('<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">Loading...</div>');
 			$('#oz-spark-sales,#oz-spark-proc,#oz-spark-pl').html('');
+			$('#oz-sales-breakdown,#oz-proc-breakdown,#oz-pl-breakdown').html('');
 
 	var args = { company: co, item: item, fy: window.oz_fy || 'All', period: period };
+	if (period === 'MTD') args.selected_months = (window.oz_selected_months || []).join(',');
+	if (period === 'QTD') args.selected_qtrs = (window.oz_selected_qtrs || []).join(',');
+	if (period === 'YTD') args.selected_ytd_fys = (window.oz_selected_ytd_fys || []).join(',');
+	// Pass compare selection
+	if (period === 'MTD' && window.oz_compare_month !== undefined && window.oz_compare_month !== '') {
+		args.compare_month = window.oz_compare_month;
+	} else if (period === 'QTD' && window.oz_compare_qtr !== undefined && window.oz_compare_qtr !== '') {
+		args.compare_qtr = window.oz_compare_qtr;
+	} else if (period === 'YTD' && window.oz_compare_fy !== undefined && window.oz_compare_fy !== '') {
+		args.compare_fy = window.oz_compare_fy;
+	}
 
 	/* ── KPIs ── */
 	frappe.call({
@@ -1058,6 +1554,7 @@ function load_all_data() {
 		callback: function (r) {
 			if (!r.message) return;
 			var d = r.message;
+			window.oz_kpi_data = d;  // Store for sparkline with %
 
 			oz_count(document.getElementById('oz-kpi-sales'), Math.round(d.sales_mtd), '₹', '');
 			setTimeout(function () { document.getElementById('oz-kpi-sales').textContent = oz_k(d.sales_mtd); }, 1300);
@@ -1071,6 +1568,28 @@ function load_all_data() {
 			document.getElementById('oz-kpi-pl-icon').style.color = plColor;
 			oz_count(document.getElementById('oz-kpi-pl'), Math.round(d.profit_loss), '₹', '');
 			setTimeout(function () { document.getElementById('oz-kpi-pl').textContent = oz_k(d.profit_loss); }, 1300);
+
+			// Period change indicators (MoM/QoQ/YoY) on all 3 cards
+			function setChange(elemId, currVal, prevVal) {
+				var el = document.getElementById(elemId);
+				if (!el) return;
+				if (!d.show_change || prevVal === null || prevVal === undefined || prevVal === 0) {
+					el.textContent = d.show_change ? 'N/A' : '';
+					el.style.color = '#94a3b8';
+					return;
+				}
+				var change = ((currVal - prevVal) / Math.abs(prevVal)) * 100;
+				change = Math.max(-999, Math.min(999, change));
+				var changeRound = Math.round(change * 10) / 10;
+				var color = changeRound >= 0 ? '#059669' : '#dc2626';
+				var arrow = changeRound >= 0 ? '↑' : '↓';
+				el.textContent = (changeRound >= 0 ? '+' : '') + changeRound + '% ' + arrow;
+				el.style.color = color;
+			}
+			setChange('oz-kpi-sales-change', d.sales_mtd, d.sales_prev);
+			setChange('oz-kpi-proc-change', d.procurement_mtd, d.procurement_prev);
+			setChange('oz-kpi-pl-change', d.profit_loss, d.profit_loss_prev);
+
 			oz_count(document.getElementById('oz-kpi-avail'), Math.round(d.available_stock), '', ' L');
 			setTimeout(function () { document.getElementById('oz-kpi-avail').textContent = oz_n(d.available_stock) + ' L'; }, 1300);
 			oz_count(document.getElementById('oz-kpi-reserved'), Math.round(d.reserved_stock), '', ' L');
@@ -1079,6 +1598,48 @@ function load_all_data() {
 			setTimeout(function () { document.getElementById('oz-kpi-neg').textContent = d.negative_alerts + ' Alerts'; }, 1300);
 			oz_count(document.getElementById('oz-kpi-ict2'), Math.round(d.intercompany_volume), '', ' L');
 			setTimeout(function () { document.getElementById('oz-kpi-ict2').textContent = oz_n(d.intercompany_volume) + ' L'; }, 1300);
+
+			// Company breakdown helper with per-company change %
+			function render_breakdown(containerId, data, color, total, prevData) {
+				var el = document.getElementById(containerId);
+				if (!el || !data) return;
+				var colors = { 'GE': '#3b82f6', 'GEX': '#10b981', 'SHE': '#f59e0b' };
+				var html = '';
+				data.forEach(function (row) {
+					var c = colors[row.abbr] || '#64748b';
+					var pct = total > 0 ? ((row.total / total) * 100).toFixed(0) : 0;
+					// Calculate per-company change % (only when 1 period selected)
+					var changeHtml = '';
+					if (d.show_change && prevData && prevData.length) {
+						var prevRow = prevData.find(function(x){ return x.abbr === row.abbr; });
+						var prevVal = prevRow ? prevRow.total : 0;
+						if (prevVal && prevVal !== 0) {
+							var change = ((row.total - prevVal) / Math.abs(prevVal)) * 100;
+							change = Math.max(-999, Math.min(999, change));
+							var changeRound = Math.round(change * 10) / 10;
+							var changeColor = changeRound >= 0 ? '#059669' : '#dc2626';
+							var arrow = changeRound >= 0 ? '↑' : '↓';
+							changeHtml = '<div style="font-size:9px;font-weight:700;color:' + changeColor + ';margin-top:1px;">' + (changeRound >= 0 ? '+' : '') + changeRound + '% ' + arrow + '</div>';
+						} else {
+							changeHtml = '<div style="font-size:9px;font-weight:600;color:#94a3b8;margin-top:1px;">N/A</div>';
+						}
+					}
+					html += '<div style="background:' + c + '08;border:1px solid ' + c + '20;border-radius:8px;padding:8px;text-align:center;position:relative;cursor:pointer;">';
+					html += '<div style="font-size:10px;font-weight:800;color:' + c + ';">' + row.abbr + '</div>';
+					html += '<div style="font-size:12px;font-weight:800;color:#1e293b;margin-top:2px;">' + oz_k(row.total) + '</div>';
+					html += changeHtml;
+					html += '<div style="height:3px;border-radius:3px;background:#f1f5f9;margin-top:4px;overflow:hidden;">';
+					html += '<div style="height:100%;width:' + pct + '%;background:' + c + ';border-radius:3px;"></div>';
+					html += '</div>';
+					html += '</div>';
+				});
+				el.innerHTML = html;
+			}
+
+			// Render company breakdowns with per-company change %
+			render_breakdown('oz-sales-breakdown', d.sales_by_company, '#3b82f6', d.sales_mtd, d.sales_prev_by_company);
+			render_breakdown('oz-proc-breakdown', d.procurement_by_company, '#10b981', d.procurement_mtd, d.procurement_prev_by_company);
+			render_breakdown('oz-pl-breakdown', d.profit_loss_by_company, '#d97706', Math.abs(d.profit_loss), d.profit_loss_prev_by_company);
 
 			// Funnel - compact horizontal
 			var tot = d.available_stock + d.reserved_stock;
@@ -1145,30 +1706,45 @@ function load_all_data() {
 	/* ── Trend + Bar Chart ── */
 	frappe.call({
 		method: 'oil_distribution.oil_distribution.page.oil_command_center.oil_command_center.get_sales_procurement_trend',
-		args: $.extend({}, args, { months: months }),
+		args: args,
 		callback: function (r) {
 			if (!r.message) return;
 			var d = r.message;
 
-			oz_build_bar_chart(document.getElementById('oz-bar-chart'), document.getElementById('oz-bar-tooltip'), d.labels, d.sales, d.purchase);
+			oz_build_stacked_bar(document.getElementById('oz-bar-chart'), document.getElementById('oz-bar-tooltip'), d.labels, d.sales, d.purchase, d.variance, d.variance_change);
 
-			// Sparklines
-			oz_sparkline(document.getElementById('oz-spark-sales'), d.sales, '#3b82f6');
-			oz_sparkline(document.getElementById('oz-spark-proc'), d.purchase, '#10b981');
+			// Sparklines with percentage change (only when 1 period selected)
+			var salesPrevVal = (d.show_change && window.oz_kpi_data) ? window.oz_kpi_data.sales_prev : null;
+			var procPrevVal = (d.show_change && window.oz_kpi_data) ? window.oz_kpi_data.procurement_prev : null;
+			var plPrevVal = (d.show_change && window.oz_kpi_data) ? window.oz_kpi_data.profit_loss_prev : null;
+			oz_sparkline_with_pct(document.getElementById('oz-spark-sales'), d.sales, '#3b82f6', salesPrevVal);
+			oz_sparkline_with_pct(document.getElementById('oz-spark-proc'), d.purchase, '#10b981', procPrevVal);
+			var plValues = (d.sales || []).map(function (s, i) { return (s || 0) - (d.purchase[i] || 0); });
+			oz_sparkline_with_pct(document.getElementById('oz-spark-pl'), plValues, '#d97706', plPrevVal);
 
-			// Monthly table
-			var th = '<table class="oz-table"><thead><tr><th>Month</th><th style="text-align:right;">Sales</th><th style="text-align:right;">Procurement</th><th style="text-align:right;">Difference</th><th style="text-align:right;">Margin %</th></tr></thead><tbody>';
+			// Monthly table with variance and MoM change
+			var th = '<table class="oz-table"><thead><tr><th>Month</th><th style="text-align:right;">Sales</th><th style="text-align:right;">Procurement</th><th style="text-align:right;">Variance</th><th style="text-align:right;">Margin %</th><th style="text-align:right;">vs Prev</th></tr></thead><tbody>';
 			for (var i = 0; i < d.labels.length; i++) {
 				var s = d.sales[i] || 0, p = d.purchase[i] || 0;
-				var diff = s - p;
-				var margin = s > 0 ? ((diff / s) * 100).toFixed(1) : '0.0';
-				var dc = diff >= 0 ? '#059669' : '#dc2626';
+				var v = d.variance ? d.variance[i] : (s - p);
+				var margin = s > 0 ? ((v / s) * 100).toFixed(1) : '0.0';
+				var vc = v >= 0 ? '#059669' : '#dc2626';
+				var change = d.variance_change ? d.variance_change[i] : null;
+				var changeHtml = '';
+				if (change !== null && change !== undefined) {
+					var cc = change >= 0 ? '#059669' : '#dc2626';
+					var ca = change >= 0 ? '↑' : '↓';
+					changeHtml = '<span style="font-weight:700;color:' + cc + ';">' + (change >= 0 ? '+' : '') + change + '% ' + ca + '</span>';
+				} else {
+					changeHtml = '<span style="color:#94a3b8;font-weight:600;">N/A</span>';
+				}
 				th += '<tr onclick="frappe.set_route(\'List\',\'Sales Invoice\')">';
 				th += '<td style="font-weight:700;color:#1e293b;">' + d.labels[i] + '</td>';
 				th += '<td style="text-align:right;font-weight:700;color:#3b82f6;">' + oz_k(s) + '</td>';
 				th += '<td style="text-align:right;font-weight:700;color:#10b981;">' + oz_k(p) + '</td>';
-				th += '<td style="text-align:right;font-weight:700;color:' + dc + ';">' + (diff >= 0 ? '+' : '') + oz_k(diff) + '</td>';
-				th += '<td style="text-align:right;font-weight:700;color:' + dc + ';">' + margin + '%</td>';
+				th += '<td style="text-align:right;font-weight:700;color:' + vc + ';">' + (v >= 0 ? '+' : '') + oz_k(v) + '</td>';
+				th += '<td style="text-align:right;font-weight:700;color:' + vc + ';">' + margin + '%</td>';
+				th += '<td style="text-align:right;">' + changeHtml + '</td>';
 				th += '</tr>';
 			}
 			th += '</tbody></table>';
@@ -1182,10 +1758,10 @@ function load_all_data() {
 		args: $.extend({}, args, { period: period }),
 		callback: function (r) {
 			if (!r.message || !r.message.length) { $('#oz-top-items').html('<div style="text-align:center;padding:20px;color:#94a3b8;">No sales data</div>'); return; }
-			var maxRev = r.message[0].total_revenue || 1;
-			var h = '<table class="oz-table"><thead><tr><th>#</th><th>Item</th><th>Qty</th><th style="text-align:right;">Revenue</th><th style="width:100px;">Share</th></tr></thead><tbody>';
+			var totalRev = r.message.reduce(function (s, row) { return s + (row.total_revenue || 0); }, 0);
+			var h = '<table class="oz-table"><thead><tr><th>#</th><th>Item</th><th>Qty</th><th style="text-align:right;">Revenue</th><th style="width:100px;">% of Total</th></tr></thead><tbody>';
 			r.message.forEach(function (row, i) {
-				var pct = (row.total_revenue / maxRev) * 100;
+				var pct = totalRev > 0 ? ((row.total_revenue / totalRev) * 100).toFixed(1) : '0.0';
 				var rankColor = i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#cd7f32' : '#e2e8f0';
 				var rankText = i === 0 ? '#fff' : i === 1 ? '#fff' : i === 2 ? '#fff' : '#94a3b8';
 				h += '<tr>';
@@ -1193,7 +1769,7 @@ function load_all_data() {
 				h += '<td style="font-weight:700;color:#1e293b;">' + row.item_code + '</td>';
 				h += '<td>' + oz_n(row.total_qty) + '</td>';
 				h += '<td style="text-align:right;font-weight:700;color:#3b82f6;">' + oz_k(row.total_revenue) + '</td>';
-				h += '<td><div class="oz-prog"><div class="oz-prog-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#3b82f6,#60a5fa);"></div></div></td>';
+				h += '<td><div style="display:flex;align-items:center;gap:6px;"><div class="oz-prog" style="flex:1;"><div class="oz-prog-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#3b82f6,#60a5fa);"></div></div><span style="font-size:9px;font-weight:700;color:#64748b;min-width:32px;text-align:right;">' + pct + '%</span></div></td>';
 				h += '</tr>';
 			});
 			h += '</tbody></table>';
@@ -1207,10 +1783,10 @@ function load_all_data() {
 		args: $.extend({}, args, { period: period }),
 		callback: function (r) {
 			if (!r.message || !r.message.length) { $('#oz-top-customers').html('<div style="text-align:center;padding:20px;color:#94a3b8;">No customer data</div>'); return; }
-			var maxAmt = r.message[0].total_amount || 1;
-			var h = '<table class="oz-table"><thead><tr><th>#</th><th>Customer</th><th>Inv</th><th style="text-align:right;">Amount</th><th style="width:100px;">Share</th></tr></thead><tbody>';
+			var totalAmt = r.message.reduce(function (s, row) { return s + (row.total_amount || 0); }, 0);
+			var h = '<table class="oz-table"><thead><tr><th>#</th><th>Customer</th><th>Inv</th><th style="text-align:right;">Amount</th><th style="width:100px;">% of Total</th></tr></thead><tbody>';
 			r.message.forEach(function (row, i) {
-				var pct = (row.total_amount / maxAmt) * 100;
+				var pct = totalAmt > 0 ? ((row.total_amount / totalAmt) * 100).toFixed(1) : '0.0';
 				var rankColor = i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#cd7f32' : '#e2e8f0';
 				var rankText = i === 0 ? '#fff' : i === 1 ? '#fff' : i === 2 ? '#fff' : '#94a3b8';
 				h += '<tr>';
@@ -1218,7 +1794,7 @@ function load_all_data() {
 				h += '<td style="font-weight:700;color:#1e293b;">' + (row.customer_name || row.customer) + '</td>';
 				h += '<td>' + row.invoice_count + '</td>';
 				h += '<td style="text-align:right;font-weight:700;color:#059669;">' + oz_k(row.total_amount) + '</td>';
-				h += '<td><div class="oz-prog"><div class="oz-prog-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#10b981,#34d399);"></div></div></td>';
+				h += '<td><div style="display:flex;align-items:center;gap:6px;"><div class="oz-prog" style="flex:1;"><div class="oz-prog-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#10b981,#34d399);"></div></div><span style="font-size:9px;font-weight:700;color:#64748b;min-width:32px;text-align:right;">' + pct + '%</span></div></td>';
 				h += '</tr>';
 			});
 			h += '</tbody></table>';
@@ -1436,32 +2012,75 @@ function oz_render_routes_breakdown(data) {
 	var el = document.getElementById('oz-routes-breakdown');
 	if (!el) return;
 	if (!data || !data.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:10px;">No routes found</div>'; return; }
-	var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">';
-	data.forEach(function (r) {
+
+	var gradients = [
+		['#60a5fa', '#3b82f6', '#eff6ff'],
+		['#a78bfa', '#8b5cf6', '#f5f3ff'],
+		['#22d3ee', '#06b6d4', '#ecfeff'],
+		['#fbbf24', '#f59e0b', '#fffbeb'],
+		['#34d399', '#10b981', '#ecfdf5'],
+		['#f87171', '#ef4444', '#fef2f2']
+	];
+
+	var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">';
+	data.forEach(function (r, idx) {
 		var fromAbbr = r.company.replace(/^(\\S+).*/, '$1');
 		var toAbbr = r.to_company.replace(/^(\\S+).*/, '$1');
 		var items = (r.item_list || '').split(',').filter(Boolean);
-		var itemTags = items.slice(0, 3).map(function (it) {
-			return '<span style="display:inline-block;background:#ecfeff;color:#0891b2;font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;margin:1px 0;">' + it + '</span>';
-		}).join(' ');
-		if (items.length > 3) itemTags += '<span style="font-size:8px;color:#94a3b8;margin-left:2px;">+' + (items.length - 3) + '</span>';
+		var grad = gradients[idx % gradients.length];
 		var coEsc = r.company.replace(/'/g, "\\'");
 		var toEsc = r.to_company.replace(/'/g, "\\'");
 		var clickFn = "frappe.set_route('List','Inter Company Transfer',{company:'" + coEsc + "',to_company:'" + toEsc + "'})";
-		html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;cursor:pointer;transition:all 0.2s;"';
-		html += ' onmouseenter="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\';this.style.transform=\'translateY(-2px)\'"';
-		html += ' onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'"';
-		html += ' onclick="' + clickFn + '">';
-		html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
-		html += '<div style="font-size:12px;font-weight:800;color:#1e293b;">' + fromAbbr + ' \u2192 ' + toAbbr + '</div>';
-		html += '<span style="font-size:9px;font-weight:700;color:#0891b2;background:#cffafe;padding:2px 6px;border-radius:6px;">' + r.cnt + ' xfers</span>';
+
+		html += '<div onclick="' + clickFn + '" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:0;cursor:pointer;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);overflow:hidden;"';
+		html += ' onmouseenter="this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.1)\';this.style.transform=\'translateY(-3px)\';this.style.borderColor=\'' + grad[0] + '\'"';
+		html += ' onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\';this.style.borderColor=\'#e2e8f0\'">';
+
+		// Header bar with gradient
+		html += '<div style="background:linear-gradient(135deg,' + grad[2] + ',#fff);border-bottom:1px solid ' + grad[0] + '30;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">';
+		html += '<div style="display:flex;align-items:center;gap:8px;">';
+		html += '<div style="background:' + grad[0] + '18;border:1px solid ' + grad[0] + '30;border-radius:6px;padding:4px 10px;">';
+		html += '<span style="font-size:11px;font-weight:800;color:' + grad[0] + ';">' + fromAbbr + '</span>';
 		html += '</div>';
-		html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">';
-		html += '<div><div style="font-size:8px;color:#94a3b8;">Volume</div><div style="font-size:11px;font-weight:800;color:#0891b2;">' + oz_n(r.qty) + ' L</div></div>';
-		html += '<div><div style="font-size:8px;color:#94a3b8;">Value</div><div style="font-size:11px;font-weight:800;color:#059669;">' + oz_k(r.value) + '</div></div>';
+		html += '<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9h10M10 5l4 4-4 4" stroke="' + grad[0] + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+		html += '<div style="background:' + grad[0] + '18;border:1px solid ' + grad[0] + '30;border-radius:6px;padding:4px 10px;">';
+		html += '<span style="font-size:11px;font-weight:800;color:' + grad[0] + ';">' + toAbbr + '</span>';
 		html += '</div>';
-		if (itemTags) html += '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;">' + itemTags + '</div>';
 		html += '</div>';
+		html += '<div style="background:' + grad[0] + ';border-radius:5px;padding:5px;margin:5px;display:inline-flex;align-items:center;">';
+		html += '<span style="font-size:13px;font-weight:800;color:#fff;letter-spacing:0.5px;">' + r.cnt + '</span>';
+		html += '</div>';
+		html += '</div>';
+
+		// Body
+		html += '<div style="padding:12px 14px;">';
+
+		// Stats row
+		html += '<div style="display:flex;gap:16px;margin-bottom:10px;">';
+		html += '<div style="flex:1;">';
+		html += '<div style="font-size:8px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Volume</div>';
+		html += '<div style="font-size:14px;font-weight:800;color:#0891b2;">' + oz_n(r.qty) + ' <span style="font-size:9px;font-weight:600;color:#94a3b8;">L</span></div>';
+		html += '</div>';
+		html += '<div style="flex:1;">';
+		html += '<div style="font-size:8px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Value</div>';
+		html += '<div style="font-size:14px;font-weight:800;color:#059669;">' + oz_k(r.value) + '</div>';
+		html += '</div>';
+		html += '</div>';
+
+		// Item tags
+		if (items.length > 0) {
+			html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+			items.slice(0, 4).forEach(function (it) {
+				html += '<span style="display:inline-flex;align-items:center;background:' + grad[2] + ';color:' + grad[0] + ';font-size:8px;font-weight:700;padding:3px 7px;border-radius:5px;border:1px solid ' + grad[0] + '20;">' + it + '</span>';
+			});
+			if (items.length > 4) {
+				html += '<span style="display:inline-flex;align-items:center;background:#f8fafc;color:#94a3b8;font-size:8px;font-weight:700;padding:3px 7px;border-radius:5px;border:1px solid #e2e8f0;">+' + (items.length - 4) + '</span>';
+			}
+			html += '</div>';
+		}
+
+		html += '</div>'; // body
+		html += '</div>'; // card
 	});
 	html += '</div>';
 	el.innerHTML = html;

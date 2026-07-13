@@ -60,19 +60,20 @@ function get_dashboard_html() {
 	<style>
 		#page-stock-dashboard .page-body { padding: 0 !important; background: #f0f2f5; }
 		.sd { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; padding: 16px 20px; }
-		.page-body { overflow-y: auto !important; }
 		.sd * { box-sizing: border-box; }
 
+		.top-bars { position: sticky; top: var(--page-head-height, 48px); z-index: 50; background: #f0f4f8; border-radius: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; padding: 6px; }
+
 		/* Bar */
-		.sd-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 14px; flex-wrap: wrap; position: sticky; top: 0; }
+		.sd-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; flex-wrap: wrap; }
 		.sd-bar label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; display: flex; align-items: center; line-height: 1; margin: 0; }
 		.sd-bar select { padding: 5px 26px 5px 8px; border-radius: 7px; border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; }
 		.sd-bar select:focus { outline: none; border-color: #3b82f6; }
 		.sd-filter-tag { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #eff6ff; color: #3b82f6; white-space: nowrap; }
 
 		/* Tabs */
-		.sd-tabs { display: flex; gap: 2px; margin-bottom: 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 4px; width: fit-content; }
-		.sd-tab-btn { padding: 7px 18px; border-radius: 8px; border: none; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+		.sd-tabs { display: flex; gap: 2px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 3px; width: fit-content; }
+		.sd-tab-btn { padding: 6px 16px; border-radius: 8px; border: none; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
 		.sd-tab-btn:hover { color: #475569; background: #f8fafc; }
 		.sd-tab-active { background: #3b82f6 !important; color: #fff !important; }
 
@@ -159,7 +160,7 @@ function get_dashboard_html() {
 		.sd-ms-btn.sd-ms-open { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 		.sd-ms-btn .sd-ms-count { background: #059669; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
 		.sd-ms-panel {
-			display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+			display: none; position: fixed; z-index: 9999;
 			min-width: 220px; max-height: 280px; overflow-y: auto;
 			background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
 			box-shadow: 0 8px 24px rgba(0,20,40,0.12); padding: 6px;
@@ -187,7 +188,8 @@ function get_dashboard_html() {
 	</style>
 
 	<div class="sd">
-		<!-- FILTERS -->
+		<!-- FILTERS + TABS -->
+		<div class="top-bars">
 		<div class="sd-bar sd-anim">
 			<label>Company</label>
 			<div id="sd-ms-company" class="sd-ms"></div>
@@ -204,6 +206,7 @@ function get_dashboard_html() {
 			<button class="sd-tab-btn" data-tab="company">By Company</button>
 			<button class="sd-tab-btn" data-tab="item">By Item</button>
 			<button class="sd-tab-btn" data-tab="swastik">Swastik Reserved</button>
+		</div>
 		</div>
 
 		<!-- ═══ PANEL: OVERVIEW ═══ -->
@@ -223,12 +226,9 @@ function get_dashboard_html() {
 				<div class="sd-card" style="margin-bottom:0;">
 					<div class="sd-card-head">
 						<div class="sd-card-icon" style="background:#ede9fe;color:#7c3aed;">📦</div>
-						<div><div class="sd-card-title">Utilization</div><div class="sd-card-sub">Reserved / Total</div></div>
+						<div><div class="sd-card-title">Utilization</div><div class="sd-card-sub">Reserved / Total Stock</div></div>
 					</div>
-					<div style="display:flex;align-items:center;gap:14px;">
-						<div id="sd-chart-wh" style="flex-shrink:0;"></div>
-						<div id="sd-wh-breakdown" style="flex:1;min-width:0;"></div>
-					</div>
+					<div id="sd-chart-wh" style="display:flex;justify-content:center;"></div>
 				</div>
 				<div class="sd-card" style="margin-bottom:0;">
 					<div class="sd-card-head">
@@ -315,11 +315,12 @@ function sd_init_multi(containerId, options, onChange, defaultSelected) {
 
 	var panel = document.createElement('div');
 	panel.className = 'sd-ms-panel';
-	container.appendChild(panel);
+	panel._container = container;
+	document.body.appendChild(panel);
+	container._panel = panel;
 
 	document.addEventListener('click', function (e) {
-		if (!container.contains(e.target)) {
-			if (container._selected.length === 0) return;
+		if (!container.contains(e.target) && !panel.contains(e.target)) {
 			panel.classList.remove('sd-ms-show');
 			btn.classList.remove('sd-ms-open');
 		}
@@ -333,6 +334,9 @@ function sd_init_multi(containerId, options, onChange, defaultSelected) {
 		if (!isOpen) {
 			panel.classList.add('sd-ms-show');
 			btn.classList.add('sd-ms-open');
+			var rect = btn.getBoundingClientRect();
+			panel.style.left = rect.left + 'px';
+			panel.style.top = (rect.bottom + 4) + 'px';
 			sd_render_ms_panel(container);
 		}
 	});
@@ -343,7 +347,7 @@ function sd_init_multi(containerId, options, onChange, defaultSelected) {
 }
 
 function sd_render_ms_panel(container) {
-	var panel = container.querySelector('.sd-ms-panel');
+	var panel = container._panel || document.querySelector('.sd-ms-panel');
 	var options = container._options || [];
 	var selected = container._selected;
 
@@ -382,18 +386,20 @@ function sd_render_ms_panel(container) {
 	panel.querySelectorAll('.sd-ms-action').forEach(function (btn) {
 		btn.addEventListener('click', function (e) {
 			e.preventDefault();
+			e.stopPropagation();
 			var action = this.getAttribute('data-action');
 			if (action === 'all') {
 				container._selected = container._options.map(function (o) { return o.value; });
 			} else {
-				container._selected = [];
+				if (container._selected.length <= 1) {
+					var errEl = panel.querySelector('.sd-ms-error');
+					if (errEl) { errEl.style.display = 'block'; setTimeout(function () { errEl.style.display = 'none'; }, 2000); }
+					return;
+				}
+				container._selected = [container._selected[0]];
 			}
 			sd_update_ms_btn(container);
 			sd_render_ms_panel(container);
-			if (action !== 'all' && container._selected.length === 0) {
-				var errEl = panel.querySelector('.sd-ms-error');
-				if (errEl) errEl.style.display = 'block';
-			}
 			if (container._onChange) container._onChange(container._selected);
 		});
 	});
@@ -460,43 +466,119 @@ function sd_count(el, target, pre, suf, dur) {
 
 /* ═══════════ DONUT CHART ═══════════ */
 
-function sd_donut(el, data, size) {
-	size = size || 130;
-	var total = data.reduce(function (s, d) { return s + d.value; }, 0);
-	if (total === 0) { el.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:10px;">No data</div>'; return; }
-	var r = (size - 16) / 2, c = 2 * Math.PI * r, ct = size / 2, cum = 0;
-	var s = '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;">';
-	s += '<svg width="' + size + '" height="' + size + '" style="transform:rotate(-90deg);">';
-	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="14"/>';
-	data.forEach(function (item) {
-		var pct = item.value / total, adj = Math.max(0, pct - 0.02);
-		var dash = c * adj + ' ' + (c * (1 - adj)), off = -c * cum;
-		cum += pct;
-		s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="' + item.color + '" stroke-width="14" stroke-dasharray="' + dash + '" stroke-dashoffset="' + off + '" stroke-linecap="round"><title>' + item.label + ': ' + sd_n(item.value) + '</title></circle>';
-	});
-	s += '</svg>';
-	s += '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:18px;font-weight:800;color:#1e293b;">' + total.toLocaleString() + '</span><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#94a3b8;">Total</span></div></div>';
-	s += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:center;">';
-	data.forEach(function (item) {
-		s += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:' + item.color + ';"></div><span style="font-size:9px;font-weight:600;color:#64748b;">' + item.label + '</span><span style="font-size:9px;font-weight:700;color:' + item.color + ';">' + sd_n(item.value) + '</span></div>';
-	});
-	s += '</div>';
-	el.innerHTML = s;
-}
+/* ═══════════ UTILIZATION DONUT ═══════════ */
 
-/* ═══════════ RING ═══════════ */
+function sd_donut(el, avail, reserved) {
+	var total = (avail || 0) + (reserved || 0);
+	if (total === 0) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:11px;">No stock data</div>'; return; }
+	var pct = Math.round((reserved / total) * 100);
+	var uid = 'sddu' + Math.random().toString(36).slice(2, 8);
+	var sz = 100, st = 14, r = (sz - st) / 2, circ = 2 * Math.PI * r, ct = sz / 2;
 
-function sd_ring(el, pct, c1, c2, sz) {
-	sz = sz || 100; pct = Math.min(100, Math.max(0, pct));
-	var r = (sz - 10) / 2, circ = 2 * Math.PI * r, ct = sz / 2;
-	var s = '<div style="position:relative;width:' + sz + 'px;height:' + sz + 'px;">';
-	s += '<svg viewBox="0 0 ' + sz + ' ' + sz + '" width="' + sz + '" height="' + sz + '" style="transform:rotate(-90deg);">';
-	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="7"/>';
-	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="url(#sdring)" stroke-width="7" stroke-linecap="round" stroke-dasharray="' + (circ * pct / 100) + ' ' + (circ * (1 - pct / 100)) + '"/>';
-	s += '<defs><linearGradient id="sdring"><stop offset="0%" stop-color="' + (c1 || '#3b82f6') + '"/><stop offset="100%" stop-color="' + (c2 || '#7c3aed') + '"/></linearGradient></defs>';
+	var agap = 0.015, cAvail = '#3b82f6', cRes = '#f59e0b';
+
+	// Available segment
+	var aDash = circ * Math.max(0, (100 - pct) / 100 - agap);
+	var aGap = circ * agap;
+	// Reserved segment
+	var rDash = circ * Math.max(0, pct / 100 - agap);
+	var rGap = circ * agap;
+	var aOff = 0;
+	var rOff = -circ * (100 - pct) / 100;
+
+	var s = '<div style="display:flex;align-items:center;gap:16px;justify-content:center;padding:6px 0;">';
+
+	// Donut
+	s += '<div style="position:relative;width:' + sz + 'px;height:' + sz + 'px;flex-shrink:0;">';
+	s += '<svg width="' + sz + '" height="' + sz + '" style="transform:rotate(-90deg);">';
+	s += '<circle cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="' + st + '"/>';
+	s += '<circle data-idx="0" cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="' + cAvail + '" stroke-width="' + st + '" stroke-linecap="round" stroke-dasharray="0 ' + circ + '" data-target="' + aDash + '" style="cursor:pointer;transition:stroke-dasharray 0.6s ease,stroke-width 0.2s,opacity 0.2s;">';
+	s += '<title>Available: ' + sd_n(avail) + ' (' + (100 - pct) + '%)</title></circle>';
+	s += '<circle data-idx="1" cx="' + ct + '" cy="' + ct + '" r="' + r + '" fill="none" stroke="' + cRes + '" stroke-width="' + st + '" stroke-linecap="round" stroke-dasharray="0 ' + circ + '" stroke-dashoffset="' + rOff + '" data-target="' + rDash + '" style="cursor:pointer;transition:stroke-dasharray 0.6s ease,stroke-width 0.2s,opacity 0.2s;">';
+	s += '<title>Reserved: ' + sd_n(reserved) + ' (' + pct + '%)</title></circle>';
 	s += '</svg>';
-	s += '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:13px;font-weight:800;color:#1e293b;">' + Math.round(pct) + '%</span><span style="font-size:7px;font-weight:700;text-transform:uppercase;color:#94a3b8;">reserved</span></div></div>';
+	s += '<div id="' + uid + '-ctr" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;transition:all 0.2s;">';
+	s += '<span id="' + uid + '-pct" style="font-size:20px;font-weight:800;color:#1e293b;line-height:1;">' + pct + '%</span>';
+	s += '<span id="' + uid + '-lbl" style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#94a3b8;margin-top:2px;">Reserved</span>';
+	s += '</div></div>';
+
+	// Legend
+	s += '<div id="' + uid + '-leg" style="display:flex;flex-direction:column;gap:5px;">';
+	s += '<div class="sd-donut-leg" data-idx="0" style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;">';
+	s += '<div style="width:8px;height:8px;border-radius:2px;background:' + cAvail + ';flex-shrink:0;"></div>';
+	s += '<div style="flex:1;min-width:0;"><div style="font-size:10px;font-weight:700;color:#1e293b;">Available</div><div style="font-size:8px;color:#94a3b8;">' + sd_n(avail) + ' L</div></div>';
+	s += '<div style="width:30px;height:3px;border-radius:3px;background:#f1f5f9;overflow:hidden;"><div style="height:100%;width:' + (100 - pct) + '%;background:' + cAvail + ';border-radius:3px;"></div></div></div>';
+	s += '<div class="sd-donut-leg" data-idx="1" style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;">';
+	s += '<div style="width:8px;height:8px;border-radius:2px;background:' + cRes + ';flex-shrink:0;"></div>';
+	s += '<div style="flex:1;min-width:0;"><div style="font-size:10px;font-weight:700;color:#1e293b;">Reserved</div><div style="font-size:8px;color:#94a3b8;">' + sd_n(reserved) + ' L</div></div>';
+	s += '<div style="width:30px;height:3px;border-radius:3px;background:#f1f5f9;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + cRes + ';border-radius:3px;"></div></div></div>';
+	s += '<div style="display:flex;align-items:center;gap:6px;padding:2px 8px;margin-top:2px;border-top:1px solid #f1f5f9;">';
+	s += '<div style="width:8px;height:8px;border-radius:2px;background:#cbd5e1;flex-shrink:0;"></div>';
+	s += '<div style="font-size:9px;font-weight:600;color:#64748b;flex:1;">Total</div>';
+	s += '<div style="font-size:10px;font-weight:700;color:#1e293b;">' + sd_n(total) + ' L</div>';
+	s += '</div></div></div>';
+
 	el.innerHTML = s;
+
+	setTimeout(function () {
+		var arcs = el.querySelectorAll('circle[data-target]');
+		arcs.forEach(function (a) {
+			var t = a.getAttribute('data-target');
+			requestAnimationFrame(function () { a.setAttribute('stroke-dasharray', t + ' ' + (circ - t)); });
+		});
+	}, 80);
+
+	// Interactivity
+	setTimeout(function () {
+		var segs = el.querySelectorAll('circle[data-idx]');
+		var legs = el.querySelectorAll('.sd-donut-leg');
+		var ctr = document.getElementById(uid + '-ctr');
+		var pctEl = document.getElementById(uid + '-pct');
+		var lblEl = document.getElementById(uid + '-lbl');
+		var colors = [cAvail, cRes];
+		var labels = ['Available', 'Reserved'];
+		var vals = [avail, reserved];
+		var pcts = [100 - pct, pct];
+
+		function hl(idx) {
+			segs.forEach(function (c, i) {
+				if (idx === null) { c.style.strokeWidth = st; c.style.opacity = 1; }
+				else if (i === idx) { c.style.strokeWidth = st + 4; c.style.opacity = 1; }
+				else { c.style.strokeWidth = st - 4; c.style.opacity = 0.3; }
+			});
+			legs.forEach(function (l, i) {
+				if (idx === null) { l.style.borderColor = 'transparent'; l.style.background = 'transparent'; }
+				else if (i === idx) { l.style.borderColor = colors[i]; l.style.background = colors[i] + '0c'; }
+				else { l.style.borderColor = 'transparent'; l.style.background = 'transparent'; }
+			});
+			if (idx !== null && pctEl) {
+				pctEl.textContent = pcts[idx] + '%';
+				pctEl.style.color = colors[idx];
+				lblEl.textContent = labels[idx];
+			} else if (pctEl) {
+				pctEl.textContent = pct + '%';
+				pctEl.style.color = '#1e293b';
+				lblEl.textContent = 'Reserved';
+			}
+		}
+
+		segs.forEach(function (c, i) {
+			c.addEventListener('mouseenter', function () { hl(i); });
+			c.addEventListener('mouseleave', function () { hl(null); });
+			c.addEventListener('click', function () {
+				var wh = i === 0 ? 'Available' : 'Reserved';
+				frappe.set_route('List', 'Bin', { warehouse: ['like', wh + ' WH%'] });
+			});
+		});
+		legs.forEach(function (l, i) {
+			l.addEventListener('mouseenter', function () { hl(i); });
+			l.addEventListener('mouseleave', function () { hl(null); });
+			l.addEventListener('click', function () {
+				var wh = i === 0 ? 'Available' : 'Reserved';
+				frappe.set_route('List', 'Bin', { warehouse: ['like', wh + ' WH%'] });
+			});
+		});
+	}, 100);
 }
 
 /* ═══════════ STACKED BAR (Interactive) ═══════════ */
@@ -504,23 +586,26 @@ function sd_ring(el, pct, c1, c2, sz) {
 function sd_stacked_bars(el, labels, series, rawData) {
 	if (!labels || !labels.length) { el.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">No data</div>'; return; }
 	rawData = rawData || [];
-	var W = 420, H = 200, P = { t: 14, r: 14, b: 44, l: 52 };
+	var W = 420, H = 210, P = { t: 16, r: 16, b: 48, l: 54 };
 	var cw = W - P.l - P.r, ch = H - P.t - P.b;
 	var maxStack = labels.map(function (_, i) { return series.reduce(function (s, ser) { return s + (ser.values[i] || 0); }, 0); });
-	var mx = Math.max.apply(null, maxStack) * 1.12 || 1;
-	var barW = Math.min(cw / labels.length * 0.48, 40);
+	var mx = Math.max.apply(null, maxStack) * 1.15 || 1;
+	var barW = Math.min(cw / labels.length * 0.45, 38);
 	var uid = 'sbc' + Math.random().toString(36).slice(2, 8);
 
 	var s = '';
-	// Defs for gradients & filters
 	s += '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:' + H + 'px;overflow:visible;">';
 	s += '<defs>';
 	series.forEach(function (ser, si) {
 		s += '<linearGradient id="' + uid + '-g' + si + '" x1="0" y1="0" x2="0" y2="1">';
-		s += '<stop offset="0%" stop-color="' + ser.color + '" stop-opacity="0.95"/>';
-		s += '<stop offset="100%" stop-color="' + ser.color + '" stop-opacity="0.7"/>';
+		s += '<stop offset="0%" stop-color="' + ser.color + '"/>';
+		s += '<stop offset="100%" stop-color="' + ser.color + '" stop-opacity="0.65"/>';
 		s += '</linearGradient>';
 	});
+	s += '<filter id="' + uid + '-glow" x="-20%" y="-20%" width="140%" height="140%">';
+	s += '<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>';
+	s += '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>';
+	s += '</filter>';
 	s += '<filter id="' + uid + '-shadow" x="-4%" y="-4%" width="108%" height="112%">';
 	s += '<feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08"/>';
 	s += '</filter>';
@@ -529,7 +614,7 @@ function sd_stacked_bars(el, labels, series, rawData) {
 	// Grid lines
 	for (var g = 0; g <= 4; g++) {
 		var gy = P.t + (g / 4) * ch;
-		s += '<line x1="' + P.l + '" y1="' + gy + '" x2="' + (W - P.r) + '" y2="' + gy + '" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="2,2"/>';
+		s += '<line x1="' + P.l + '" y1="' + gy + '" x2="' + (W - P.r) + '" y2="' + gy + '" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3,3"/>';
 		s += '<text x="' + (P.l - 8) + '" y="' + (gy + 3.5) + '" text-anchor="end" fill="#94a3b8" font-size="8" font-weight="600">' + sd_k(mx * (1 - g / 4)) + '</text>';
 	}
 
@@ -541,7 +626,6 @@ function sd_stacked_bars(el, labels, series, rawData) {
 	labels.forEach(function (l, i) {
 		var cx = P.l + (i + 0.5) * (cw / labels.length);
 		var cumY = 0;
-		var segs = [];
 
 		series.forEach(function (ser, si) {
 			var v = ser.values[i] || 0;
@@ -550,18 +634,22 @@ function sd_stacked_bars(el, labels, series, rawData) {
 			var barId = uid + '-' + i + '-' + si;
 			var pct = totalPerCompany[i] > 0 ? Math.round((v / totalPerCompany[i]) * 100) : 0;
 
-			s += '<rect id="' + barId + '" x="' + (cx - barW / 2) + '" y="' + (P.t + ch) + '" width="' + barW + '" height="0" fill="url(#' + uid + '-g' + si + ')" rx="3" filter="url(#' + uid + '-shadow)" style="cursor:pointer;transition:opacity 0.2s;"';
-			s += ' data-target-y="' + y + '" data-target-h="' + Math.max(1, h) + '" data-idx="' + i + '" data-series="' + si + '"';
+			s += '<rect id="' + barId + '" x="' + (cx - barW / 2) + '" y="' + (P.t + ch) + '" width="' + barW + '" height="0" fill="url(#' + uid + '-g' + si + ')" rx="3" filter="url(#' + uid + '-shadow)" style="cursor:pointer;transition:all 0.3s cubic-bezier(.4,0,.2,1);"';
+			s += ' data-target-y="' + y + '" data-target-h="' + Math.max(1, h) + '" data-idx="' + i + '" data-series="' + si + '" data-pct="' + pct + '"';
 			s += ' onmouseenter="sd_bc_hover(this,\'' + l + '\',' + i + ')" onmouseleave="sd_bc_leave(this)" onclick="sd_bc_click(this)">';
 			s += '<title>' + l + '\n' + ser.name + ': ' + sd_n(v) + ' L (' + pct + '%)</title></rect>';
+
+			// Percentage label on bar segment (only if tall enough and > 5%)
+			if (h > 18 && pct > 5) {
+				s += '<text id="' + barId + '-lbl" x="' + cx + '" y="' + (P.t + ch) + '" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" style="pointer-events:none;opacity:0;transition:opacity 0.3s;">' + pct + '%</text>';
+			}
 			cumY += h;
-			segs.push({ name: ser.name, val: v, color: ser.color, pct: pct });
 		});
 
 		// Company label
-		s += '<text x="' + cx + '" y="' + (H - 22) + '" text-anchor="middle" fill="#475569" font-size="9" font-weight="700">' + l + '</text>';
-		// Total on top
-		s += '<text x="' + cx + '" y="' + (H - 10) + '" text-anchor="middle" fill="#94a3b8" font-size="7" font-weight="600">' + sd_k(totalPerCompany[i]) + '</text>';
+		s += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" fill="#475569" font-size="9" font-weight="700">' + l + '</text>';
+		// Total on bottom
+		s += '<text x="' + cx + '" y="' + (H - 12) + '" text-anchor="middle" fill="#94a3b8" font-size="7" font-weight="600">' + sd_k(totalPerCompany[i]) + '</text>';
 	});
 
 	// Legend
@@ -575,14 +663,13 @@ function sd_stacked_bars(el, labels, series, rawData) {
 	s += '</svg>';
 
 	// Tooltip div
-	s += '<div id="' + uid + '-tip" style="display:none;position:fixed;z-index:9999;background:#1e293b;color:#fff;padding:10px 14px;border-radius:8px;font-size:10px;line-height:1.6;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.18);max-width:220px;"></div>';
+	s += '<div id="' + uid + '-tip" style="display:none;position:fixed;z-index:9999;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:10px;line-height:1.7;pointer-events:none;box-shadow:0 12px 32px rgba(0,0,0,0.25);max-width:240px;border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(8px);"></div>';
 
-	// Store data for tooltip
 	el.setAttribute('data-raw', JSON.stringify(rawData));
 	el.setAttribute('data-uid', uid);
 	el.innerHTML = s;
 
-	// Animate bars in
+	// Animate bars in with stagger
 	setTimeout(function () {
 		labels.forEach(function (_, i) {
 			series.forEach(function (ser, si) {
@@ -590,15 +677,18 @@ function sd_stacked_bars(el, labels, series, rawData) {
 				if (!bar) return;
 				var ty = bar.getAttribute('data-target-y');
 				var th = bar.getAttribute('data-target-h');
-				bar.setAttribute('y', ty);
-				bar.setAttribute('height', th);
+				setTimeout(function () {
+					bar.setAttribute('y', ty);
+					bar.setAttribute('height', th);
+				}, i * 60 + si * 30);
 			});
 		});
 	}, 50);
 }
 
 function sd_bc_hover(el, label, idx) {
-	el.style.opacity = '0.8';
+	el.style.filter = 'url(#' + el.closest('svg').querySelector('filter').id.split('-')[0] + '-glow)';
+	el.style.opacity = '0.85';
 	var svg = el.closest('svg');
 	if (!svg) return;
 	var uid = svg.parentElement.getAttribute('data-uid');
@@ -607,24 +697,34 @@ function sd_bc_hover(el, label, idx) {
 
 	var raw = JSON.parse(svg.parentElement.getAttribute('data-raw') || '[]');
 	var d = raw[idx] || {};
-	var html = '<div style="font-weight:800;margin-bottom:4px;font-size:11px;">' + (d.company || label) + '</div>';
-	html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;"><span style="width:7px;height:7px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Available: <b style="color:#93c5fd;">' + sd_n(d.avail_qty || 0) + ' L</b></div>';
-	html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;"><span style="width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Reserved: <b style="color:#fcd34d;">' + sd_n(d.reserved_qty || 0) + ' L</b></div>';
-	html += '<div style="border-top:1px solid rgba(255,255,255,0.15);margin-top:4px;padding-top:4px;color:#cbd5e1;">Total: <b>' + sd_n((d.avail_qty || 0) + (d.reserved_qty || 0)) + ' L</b></div>';
-	html += '<div style="color:#94a3b8;font-size:9px;">Value: ' + sd_k(d.total_value || 0) + ' · Items: ' + (d.item_count || 0) + '</div>';
+	var total = (d.avail_qty || 0) + (d.reserved_qty || 0);
+	var html = '<div style="font-weight:800;margin-bottom:6px;font-size:12px;color:#f1f5f9;">' + (d.company || label) + '</div>';
+	html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Available: <b style="color:#93c5fd;">' + sd_n(d.avail_qty || 0) + ' L</b></div>';
+	html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Reserved: <b style="color:#fcd34d;">' + sd_n(d.reserved_qty || 0) + ' L</b></div>';
+	html += '<div style="border-top:1px solid rgba(255,255,255,0.12);margin-top:5px;padding-top:5px;color:#cbd5e1;font-size:11px;">Total: <b>' + sd_n(total) + ' L</b></div>';
+	html += '<div style="color:#94a3b8;font-size:9px;margin-top:3px;">Value: ' + sd_k(d.total_value || 0) + ' · Items: ' + (d.item_count || 0) + '</div>';
 	tip.innerHTML = html;
 	tip.style.display = 'block';
-	tip.style.left = (el.getBoundingClientRect().right + 10) + 'px';
-	tip.style.top = el.getBoundingClientRect().top + 'px';
+	var rect = el.getBoundingClientRect();
+	tip.style.left = (rect.right + 12) + 'px';
+	tip.style.top = rect.top + 'px';
 
-	// Dim other bars
+	// Dim other companies, show percentage labels
 	var allBars = svg.querySelectorAll('rect[data-idx]');
 	allBars.forEach(function (b) {
-		if (b.getAttribute('data-idx') !== String(idx)) b.style.opacity = '0.3';
+		if (b.getAttribute('data-idx') !== String(idx)) {
+			b.style.opacity = '0.2';
+		} else {
+			// Show percentage label for this company
+			var lblId = b.id + '-lbl';
+			var lbl = document.getElementById(lblId);
+			if (lbl) lbl.style.opacity = '1';
+		}
 	});
 }
 
 function sd_bc_leave(el) {
+	el.style.filter = 'url(#' + el.closest('svg').querySelector('filter').id.split('-')[0] + '-shadow)';
 	el.style.opacity = '1';
 	var svg = el.closest('svg');
 	if (!svg) return;
@@ -633,6 +733,8 @@ function sd_bc_leave(el) {
 	if (tip) tip.style.display = 'none';
 	var allBars = svg.querySelectorAll('rect[data-idx]');
 	allBars.forEach(function (b) { b.style.opacity = '1'; });
+	// Hide all percentage labels
+	svg.querySelectorAll('text[id$="-lbl"]').forEach(function (t) { t.style.opacity = '0'; });
 }
 
 function sd_bc_click(el) {
@@ -716,15 +818,10 @@ function load_all() {
 				els.eq(4).text(d.negative_count);
 			}, 1300);
 
-			// Utilization ring + stats table
-			sd_ring(document.getElementById('sd-chart-wh'), d.utilization_pct || 0, '#3b82f6', '#7c3aed', 64);
+			// Utilization donut
+			sd_donut(document.getElementById('sd-chart-wh'), d.available_stock || d.available_qty || 0, d.reserved_stock || d.reserved_qty || 0);
 
-			var whHtml = '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
-			whHtml += '<tr><td style="padding:3px 0;color:#94a3b8;font-weight:700;">Available</td><td style="padding:3px 0;text-align:right;font-weight:800;color:#3b82f6;">' + sd_n(d.available_stock || d.available_qty) + ' L</td></tr>';
-			whHtml += '<tr><td style="padding:3px 0;color:#94a3b8;font-weight:700;">Reserved</td><td style="padding:3px 0;text-align:right;font-weight:800;color:#f59e0b;">' + sd_n(d.reserved_stock || d.reserved_qty) + ' L</td></tr>';
-			whHtml += '<tr><td style="padding:3px 0;color:#94a3b8;font-weight:700;border-top:1px solid #f1f5f9;">Total</td><td style="padding:3px 0;text-align:right;font-weight:800;color:#1e293b;border-top:1px solid #f1f5f9;">' + sd_n(d.total_stock) + ' L</td></tr>';
-			whHtml += '</table>';
-			$('#sd-wh-breakdown').html(whHtml);
+			$('#sd-wh-breakdown').html('');
 
 			// Quick Stats card
 			var qsHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';

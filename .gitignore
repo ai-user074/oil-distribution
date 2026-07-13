@@ -6,3 +6,15 @@ dist/
 build/
 *.egg
 .env
+node_modules/
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+frontend/public/ionic-dist/
+frontend/auto-imports.d.ts
+frontend/components.d.ts
+oil_distribution/public/oil_ops/
+oil_distribution/public/frontend/
+oil_distribution/www/oil-ops.html
+*_plan.md
+plan.md

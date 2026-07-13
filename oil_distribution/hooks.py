@@ -7,9 +7,14 @@ app_email = "dev@geeta.in"
 app_license = "MIT"
 source_link = "https://github.com/ai-user074/oil_distribution"
 app_logo_url = "/assets/oil_distribution/images/oil_distribution-logo.svg"
-app_home = "/app/oil-distribution"
+app_home = "/oil-ops"
 
 develop_version = "0.0.1"
+
+website_route_rules = [
+    {"from_route": "/oil-ops/<path:app_path>", "to_route": "oil-ops"},
+    {"from_route": "/oil-ops", "to_route": "oil-ops"},
+]
 
 add_to_apps_screen = [
 	{
@@ -24,6 +29,7 @@ add_to_apps_screen = [
 fixtures = [
     {"dt": "Role", "filters": [["name", "in",
         ["Intercompany Manager", "Reservation Manager", "Stock Reservation User"]]]},
+    {"dt": "Workspace Sidebar", "filters": [["name", "in", ["Oil Distribution"]]]},
 ]
 
 doc_events = {
