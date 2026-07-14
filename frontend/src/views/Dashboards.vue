@@ -33,6 +33,19 @@
         </div>
       </div>
 
+      <div class="text-xs font-bold text-gray-400 tracking-wider uppercase mb-3">Master Data</div>
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div v-for="(m,i) in masters" :key="m.label"
+          class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 anim-up"
+          :style="{ animationDelay: (i+5)*0.06+'s' }" @click="$router.push(m.route)">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3" :class="m.cls">
+            <ion-icon :icon="m.icon" class="text-xl" />
+          </div>
+          <div class="text-sm font-bold text-gray-900">{{ m.label }}</div>
+          <div class="text-xs text-gray-400 mt-1">{{ m.desc }}</div>
+        </div>
+      </div>
+
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="px-4 py-3.5 border-b border-gray-50 flex items-center justify-between">
           <div class="flex items-center gap-2.5">
@@ -59,12 +72,17 @@
 import { ref, onMounted } from "vue"
 import { IonContent, IonIcon } from "@ionic/vue"
 import { useRouter } from "vue-router"
-import { arrowForwardOutline, flashOutline, swapHorizontalOutline, waterOutline, cartOutline, desktopOutline, serverOutline, addCircleOutline, listOutline, barChartOutline } from "ionicons/icons"
+import { arrowForwardOutline, flashOutline, swapHorizontalOutline, waterOutline, cartOutline, desktopOutline, serverOutline, addCircleOutline, listOutline, barChartOutline, peopleOutline, businessOutline, cubeOutline } from "ionicons/icons"
 import { frappeRequest } from "frappe-ui"
 
 const $router = useRouter()
 const quickStats = ref([])
 const modules = ref([])
+const masters = ref([
+  { label: "Customers", desc: "View all customers", icon: peopleOutline, cls: "icon-blue", route: "/customers" },
+  { label: "Suppliers", desc: "View all suppliers", icon: businessOutline, cls: "icon-orange", route: "/suppliers" },
+  { label: "Items", desc: "View all items", icon: cubeOutline, cls: "icon-teal", route: "/items" },
+])
 
 const actions = [
   { label: "ICT Transfer", icon: swapHorizontalOutline, color: "text-indigo-500", route: "/ict" },

@@ -30,6 +30,31 @@ const routes = [
     name: "Reservation",
     component: () => import("@/views/Reservations.vue"),
   },
+  {
+    path: "/command-center",
+    name: "CommandCenter",
+    component: () => import("@/views/CommandCenter.vue"),
+  },
+  {
+    path: "/stock",
+    name: "StockDashboard",
+    component: () => import("@/views/StockDashboard.vue"),
+  },
+  {
+    path: "/customers",
+    name: "Customers",
+    component: () => import("@/views/Customers.vue"),
+  },
+  {
+    path: "/suppliers",
+    name: "Suppliers",
+    component: () => import("@/views/Suppliers.vue"),
+  },
+  {
+    path: "/items",
+    name: "Items",
+    component: () => import("@/views/Items.vue"),
+  },
 ]
 
 const router = createRouter({

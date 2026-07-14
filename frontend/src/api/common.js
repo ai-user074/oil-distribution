@@ -25,6 +25,18 @@ export function getCompanyWarehouses(company) {
   })
 }
 
+export function getCustomers() {
+  return frappeRequest({
+    url: "oil_distribution.api.oil_ops.get_customers",
+  })
+}
+
+export function getSuppliers() {
+  return frappeRequest({
+    url: "oil_distribution.api.oil_ops.get_suppliers",
+  })
+}
+
 export function getItemRate(itemCode) {
   return frappeRequest({
     url: "oil_distribution.api.oil_ops.get_item_rate",
