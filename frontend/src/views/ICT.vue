@@ -5,11 +5,11 @@
         <ion-buttons slot="start">
           <ion-menu-button />
         </ion-buttons>
-        <ion-title>Inter-Company Transfer</ion-title>
+        <ion-title>ICT</ion-title>
       </ion-toolbar>
-      <ion-segment :value="activeTab" @ion-change="onTabChange">
+      <ion-segment :value="activeTab" @ion-change="e => activeTab = e.detail.value">
         <ion-segment-button value="dashboard">
-          <ion-icon :icon="statsChartOutline" />
+          <ion-icon :icon="pulseOutline" />
           <ion-label>Dashboard</ion-label>
         </ion-segment-button>
         <ion-segment-button value="list">
@@ -25,27 +25,17 @@
 
     <IctDashboard v-if="activeTab === 'dashboard'" />
     <IctList v-if="activeTab === 'list'" />
-    <IctForm v-if="activeTab === 'create'" @created="onCreated" />
+    <IctForm v-if="activeTab === 'create'" @created="activeTab = 'list'" />
   </ion-page>
 </template>
 
 <script setup>
 import { ref } from "vue"
-import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
-  IonButtons, IonMenuButton, IonSegment, IonSegmentButton, IonIcon, IonLabel,
-} from "@ionic/vue"
-import { statsChartOutline, listOutline, addCircleOutline } from "ionicons/icons"
+import { IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonMenuButton, IonSegment, IonSegmentButton, IonIcon, IonLabel } from "@ionic/vue"
+import { pulseOutline, listOutline, addCircleOutline } from "ionicons/icons"
 import IctDashboard from "@/views/ict/Dashboard.vue"
 import IctList from "@/views/ict/List.vue"
 import IctForm from "@/views/ict/Form.vue"
 
 const activeTab = ref("dashboard")
-
-function onTabChange(e) {
-  activeTab.value = e.detail.value
-}
-function onCreated() {
-  activeTab.value = "list"
-}
 </script>
