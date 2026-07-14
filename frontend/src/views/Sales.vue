@@ -2,45 +2,51 @@
   <ion-page>
     <ion-header class="ion-no-border">
       <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-menu-button />
-        </ion-buttons>
+        <ion-buttons slot="start"><ion-menu-button /></ion-buttons>
         <ion-title>Sales</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <div class="page">
-        <div class="page-header">
-          <div class="page-title">Sales</div>
-          <div class="page-desc">Sales order overview</div>
+      <div class="page anim-fade">
+        <div class="hero" style="background:linear-gradient(135deg,#22c55e,#06b6d4)">
+          <div class="hero-title">Sales</div>
+          <div class="hero-desc">Sales orders and customer tracking</div>
         </div>
 
         <div class="stats">
-          <div v-for="k in kpis" :key="k.label" class="stat-card">
-            <div class="stat-label">{{ k.label }}</div>
-            <div class="stat-value">{{ k.value }}</div>
+          <div v-for="(s,i) in stats" :key="i" class="stat-card anim-up" :style="{ animationDelay: i*0.06+'s' }">
+            <div class="stat-icon" :class="s.cls"><ion-icon :icon="s.icon" /></div>
+            <div class="stat-label">{{ s.label }}</div>
+            <div class="stat-value">{{ s.value }}</div>
           </div>
         </div>
 
-        <div class="section">
-          <div class="section-title">Pending Sales Orders</div>
-          <div v-if="orders.length" class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>ID</th><th>Customer</th><th>Amount</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="so in orders" :key="so.name">
-                  <td class="font-semibold">{{ so.name }}</td>
-                  <td>{{ so.customer }}</td>
-                  <td>{{ fmt(so.total) }}</td>
-                  <td><span class="badge" :class="cls(so.status)">{{ so.status }}</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="text-sm text-gray-400 py-8 text-center bg-white rounded-xl border border-gray-100">Loading...</div>
+        <div class="section-title"><ion-icon :icon="documentTextOutline" class="text-emerald-500" /> Pending Sales Orders</div>
+        <div v-if="items.length" class="table-wrap anim-scale">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Customer</th>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item,i) in items" :key="item.name" class="anim-up" :style="{ animationDelay: i*0.03+'s' }">
+                <td class="font-semibold text-emerald-600">{{ item.name }}</td>
+                <td>{{ item.customer }}</td>
+                <td>{{ item.item }}</td>
+                <td>{{ item.qty }}</td>
+                <td>{{ fmt(item.amount) }}</td>
+                <td><span class="badge" :class="cls(item.status)"><ion-icon :icon="statusIcon(item.status)" style="font-size:10px" />{{ item.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+        <div v-else class="card-white text-sm text-gray-400 text-center py-10">No pending sales orders</div>
       </div>
     </ion-content>
   </ion-page>
@@ -48,28 +54,30 @@
 
 <script setup>
 import { ref, onMounted } from "vue"
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonMenuButton } from "@ionic/vue"
+import { IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonContent, IonMenuButton, IonIcon } from "@ionic/vue"
+import { desktopOutline, trendingUpOutline, peopleOutline, alertCircleOutline, documentTextOutline, checkmarkCircleOutline, timeOutline, closeCircleOutline } from "ionicons/icons"
 import { frappeRequest } from "frappe-ui"
 
-const kpis = ref([])
-const orders = ref([])
+const stats = ref([])
+const items = ref([])
 
-function fmt(v) { return "₹" + Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 }) }
-function cls(s) {
-  const m = { "To Deliver and Bill": "badge-amber", "Completed": "badge-green", "Closed": "badge-gray" }
-  return m[s] || "badge-blue"
-}
+const cls = s => ({ "To Deliver and Bill": "badge-amber", "To Deliver": "badge-blue", Completed: "badge-green", "Draft": "badge-gray" })[s] || "badge-gray"
+const statusIcon = s => ({ "To Deliver and Bill": timeOutline, "To Deliver": timeOutline, Completed: checkmarkCircleOutline, Draft: closeCircleOutline })[s] || timeOutline
+const fmt = v => "₹" + Number(v || 0).toLocaleString("en-IN",{maximumFractionDigits:0})
 
 onMounted(async () => {
   try {
-    const d = await frappeRequest({ url: "oil_distribution.api.oil_ops.get_sales_kpis" })
-    kpis.value = [
-      { label: "Total Sales", value: fmt(d.total_sales) },
-      { label: "SO Count", value: d.so_count },
-      { label: "Pending", value: d.pending_sos },
-      { label: "Customers", value: d.customer_count },
+    const [k, list] = await Promise.all([
+      frappeRequest({ url: "oil_distribution.api.oil_ops.get_sales_kpis" }),
+      frappeRequest({ url: "oil_distribution.api.oil_ops.get_pending_sales_orders", params: { limit: 50 } }),
+    ])
+    stats.value = [
+      { label: "Pending Orders", value: k.pending_orders, icon: desktopOutline, cls: "icon-blue" },
+      { label: "Total Qty", value: k.total_qty, icon: trendingUpOutline, cls: "icon-green" },
+      { label: "Total Amount", value: fmt(k.total_amount), icon: peopleOutline, cls: "icon-teal" },
+      { label: "Overdue", value: k.overdue_count, icon: alertCircleOutline, cls: "icon-rose" },
     ]
-    orders.value = await frappeRequest({ url: "oil_distribution.api.oil_ops.get_pending_sales_orders", params: { limit: 20 } })
-  } catch (e) { console.error(e) }
+    items.value = list
+  } catch(e) { console.error(e) }
 })
 </script>

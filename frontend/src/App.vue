@@ -1,27 +1,25 @@
 <template>
   <ion-app>
-    <ion-split-pane content-id="main-content" when="md">
+    <ion-split-pane content-id="main-content">
       <ion-menu content-id="main-content" side="start">
         <ion-header class="ion-no-border">
           <ion-toolbar>
-            <div class="sidebar-brand">
-              <div class="sidebar-logo">G</div>
-              <span class="sidebar-name">GEOperations</span>
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+                <ion-icon :icon="waterOutline" class="text-white text-lg" />
+              </div>
+              <div>
+                <div class="text-sm font-bold text-gray-900">GEOperations</div>
+                <div class="text-[10px] font-medium text-gray-400 tracking-wide">DASHBOARD</div>
+              </div>
             </div>
           </ion-toolbar>
         </ion-header>
         <ion-content>
           <ion-list>
-            <ion-item
-              v-for="tab in tabs"
-              :key="tab.name"
-              :router-link="tab.path"
-              router-direction="root"
-              :detail="false"
-              :class="{ selected: isActive(tab.path) }"
-            >
-              <ion-icon :icon="tab.icon" slot="start" />
-              <ion-label>{{ tab.label }}</ion-label>
+            <ion-item v-for="n in nav" :key="n.route" :router-link="n.route" router-direction="root" :class="{ selected: $route.path === n.route }">
+              <ion-icon :icon="n.icon" />
+              <ion-label>{{ n.label }}</ion-label>
             </ion-item>
           </ion-list>
         </ion-content>
@@ -32,52 +30,16 @@
 </template>
 
 <script setup>
-import {
-  IonApp, IonSplitPane, IonMenu, IonHeader, IonToolbar,
-  IonContent, IonList, IonItem, IonLabel, IonIcon, IonRouterOutlet,
-} from "@ionic/vue"
+import { IonApp, IonSplitPane, IonMenu, IonHeader, IonToolbar, IonContent, IonList, IonItem, IonLabel, IonIcon, IonRouterOutlet } from "@ionic/vue"
 import { useRoute } from "vue-router"
-import {
-  gridOutline, cartOutline, cashOutline,
-  hardwareChipOutline, calendarOutline,
-} from "ionicons/icons"
+import { waterOutline, gridOutline, cartOutline, desktopOutline, serverOutline } from "ionicons/icons"
 
-const route = useRoute()
-
-const tabs = [
-  { path: "/dashboards", label: "Dashboard", icon: gridOutline },
-  { path: "/procurement", label: "Procurement", icon: cartOutline },
-  { path: "/sales", label: "Sales", icon: cashOutline },
-  { path: "/ict", label: "ICT", icon: hardwareChipOutline },
-  { path: "/reservations", label: "Reservation", icon: calendarOutline },
+const $route = useRoute()
+const nav = [
+  { route: "/", label: "Dashboard", icon: gridOutline },
+  { route: "/procurement", label: "Procurement", icon: cartOutline },
+  { route: "/sales", label: "Sales", icon: desktopOutline },
+  { route: "/ict", label: "ICT", icon: serverOutline },
+  { route: "/reservations", label: "Reservations", icon: waterOutline },
 ]
-
-function isActive(path) {
-  return route.path.startsWith(path)
-}
 </script>
-
-<style scoped>
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.sidebar-logo {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 14px;
-}
-.sidebar-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #ffffff;
-}
-</style>

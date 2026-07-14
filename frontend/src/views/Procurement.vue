@@ -2,45 +2,51 @@
   <ion-page>
     <ion-header class="ion-no-border">
       <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-menu-button />
-        </ion-buttons>
+        <ion-buttons slot="start"><ion-menu-button /></ion-buttons>
         <ion-title>Procurement</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <div class="page">
-        <div class="page-header">
-          <div class="page-title">Procurement</div>
-          <div class="page-desc">Purchase order overview</div>
+      <div class="page anim-fade">
+        <div class="hero" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">
+          <div class="hero-title">Procurement</div>
+          <div class="hero-desc">Purchase orders and supplier management</div>
         </div>
 
         <div class="stats">
-          <div v-for="k in kpis" :key="k.label" class="stat-card">
-            <div class="stat-label">{{ k.label }}</div>
-            <div class="stat-value">{{ k.value }}</div>
+          <div v-for="(s,i) in stats" :key="i" class="stat-card anim-up" :style="{ animationDelay: i*0.06+'s' }">
+            <div class="stat-icon" :class="s.cls"><ion-icon :icon="s.icon" /></div>
+            <div class="stat-label">{{ s.label }}</div>
+            <div class="stat-value">{{ s.value }}</div>
           </div>
         </div>
 
-        <div class="section">
-          <div class="section-title">Pending Purchase Orders</div>
-          <div v-if="orders.length" class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>ID</th><th>Supplier</th><th>Amount</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="po in orders" :key="po.name">
-                  <td class="font-semibold">{{ po.name }}</td>
-                  <td>{{ po.supplier }}</td>
-                  <td>{{ fmt(po.total) }}</td>
-                  <td><span class="badge" :class="cls(po.status)">{{ po.status }}</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="text-sm text-gray-400 py-8 text-center bg-white rounded-xl border border-gray-100">Loading...</div>
+        <div class="section-title"><ion-icon :icon="documentTextOutline" class="text-amber-500" /> Pending Purchase Orders</div>
+        <div v-if="items.length" class="table-wrap anim-scale">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Supplier</th>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item,i) in items" :key="item.name" class="anim-up" :style="{ animationDelay: i*0.03+'s' }">
+                <td class="font-semibold text-amber-600">{{ item.name }}</td>
+                <td>{{ item.supplier }}</td>
+                <td>{{ item.item }}</td>
+                <td>{{ item.qty }}</td>
+                <td>{{ fmt(item.amount) }}</td>
+                <td><span class="badge" :class="cls(item.status)"><ion-icon :icon="statusIcon(item.status)" style="font-size:10px" />{{ item.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+        <div v-else class="card-white text-sm text-gray-400 text-center py-10">No pending purchase orders</div>
       </div>
     </ion-content>
   </ion-page>
@@ -48,28 +54,30 @@
 
 <script setup>
 import { ref, onMounted } from "vue"
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonMenuButton } from "@ionic/vue"
+import { IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonContent, IonMenuButton, IonIcon } from "@ionic/vue"
+import { cartOutline, trendingUpOutline, peopleOutline, alertCircleOutline, documentTextOutline, checkmarkCircleOutline, timeOutline, closeCircleOutline } from "ionicons/icons"
 import { frappeRequest } from "frappe-ui"
 
-const kpis = ref([])
-const orders = ref([])
+const stats = ref([])
+const items = ref([])
 
-function fmt(v) { return "₹" + Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 }) }
-function cls(s) {
-  const m = { "To Deliver and Bill": "badge-amber", "Completed": "badge-green", "Closed": "badge-gray" }
-  return m[s] || "badge-blue"
-}
+const cls = s => ({ "To Receive and Bill": "badge-amber", "To Bill": "badge-blue", Completed: "badge-green", "Draft": "badge-gray" })[s] || "badge-gray"
+const statusIcon = s => ({ "To Receive and Bill": timeOutline, "To Bill": timeOutline, Completed: checkmarkCircleOutline, Draft: closeCircleOutline })[s] || timeOutline
+const fmt = v => "₹" + Number(v || 0).toLocaleString("en-IN",{maximumFractionDigits:0})
 
 onMounted(async () => {
   try {
-    const d = await frappeRequest({ url: "oil_distribution.api.oil_ops.get_procurement_kpis" })
-    kpis.value = [
-      { label: "Total Spend", value: fmt(d.total_spend) },
-      { label: "PO Count", value: d.po_count },
-      { label: "Pending", value: d.pending_pos },
-      { label: "Suppliers", value: d.supplier_count },
+    const [k, list] = await Promise.all([
+      frappeRequest({ url: "oil_distribution.api.oil_ops.get_procurement_kpis" }),
+      frappeRequest({ url: "oil_distribution.api.oil_ops.get_pending_purchase_orders", params: { limit: 50 } }),
+    ])
+    stats.value = [
+      { label: "Pending Orders", value: k.pending_orders, icon: cartOutline, cls: "icon-amber" },
+      { label: "Total Qty", value: k.total_qty, icon: trendingUpOutline, cls: "icon-blue" },
+      { label: "Total Amount", value: fmt(k.total_amount), icon: peopleOutline, cls: "icon-green" },
+      { label: "Overdue", value: k.overdue_count, icon: alertCircleOutline, cls: "icon-rose" },
     ]
-    orders.value = await frappeRequest({ url: "oil_distribution.api.oil_ops.get_pending_purchase_orders", params: { limit: 20 } })
-  } catch (e) { console.error(e) }
+    items.value = list
+  } catch(e) { console.error(e) }
 })
 </script>
