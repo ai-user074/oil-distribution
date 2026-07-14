@@ -1,52 +1,28 @@
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import path from 'path'
-import frappeui from 'frappe-ui/vite'
+import { defineConfig } from "vite"
+import vue from "@vitejs/plugin-vue"
+import path from "path"
+import Icons from "unplugin-icons/vite"
 
 export default defineConfig({
-  define: {
-    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
-  },
   plugins: [
-    vue({
-      template: {
-        compilerOptions: {
-          isCustomElement: (tag) => tag.startsWith('ion-'),
-        },
-      },
-    }),
-    frappeui({
-      lucideIcons: true,
-      frontendRoute: '/oil-ops',
-      buildConfig: {
-        indexHtmlPath: path.resolve(__dirname, `../oil_distribution/www/oil-ops.html`),
-      },
-    }),
+    vue(),
+    Icons({ compiler: "vue3" }),
   ],
+  base: "/assets/oil_distribution/frontend/",
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      "@": path.resolve(__dirname, "src"),
     },
   },
   build: {
+    outDir: "../oil_distribution/public/frontend",
     emptyOutDir: true,
-    target: 'es2015',
-    commonjsOptions: {
-      include: [/tailwind.config.js/, /node_modules/],
-    },
     rollupOptions: {
       output: {
-        manualChunks: {
-          "frappe-ui": ["frappe-ui"],
-        },
+        entryFileNames: "assets/[name]-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash][extname]",
       },
     },
-  },
-  optimizeDeps: {
-    include: [
-      "frappe-ui > feather-icons",
-      "showdown",
-      "tailwind.config.js",
-    ],
   },
 })

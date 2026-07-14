@@ -2,24 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover maximum-scale=1.0, user-scalable=no" />
-  <title>Oil Operations</title>
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Oil Operations" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#1e293b" />
-  <script id="frappe-boot-data" type="application/json"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>GEOperations</title>
+  <style>
+    body { margin: 0; }
+  </style>
 </head>
-<body class="antialiased">
+<body>
   <div id="app"></div>
-  <div id="modals"></div>
-  <div id="popovers"></div>
-  <script>
-    window.csrf_token = "{{ csrf_token }}";
-    window.site_name = '{{ site_name }}';
-    if (!window.frappe) window.frappe = {};
-    window.frappe.boot = {{ boot | tojson }};
-  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

@@ -1,56 +1,34 @@
 import { createRouter, createWebHistory } from "@ionic/vue-router"
 
-import TabbedView from "@/views/TabbedView.vue"
-
 const routes = [
   {
     path: "/",
-    redirect: "/home",
+    redirect: "/dashboards",
   },
   {
-    path: "/home",
-    name: "Home",
-    component: () => import("@/views/Home.vue"),
+    path: "/dashboards",
+    name: "Dashboard",
+    component: () => import("@/views/Dashboards.vue"),
   },
   {
     path: "/procurement",
     name: "Procurement",
-    component: () => import("@/views/procurement/Dashboard.vue"),
+    component: () => import("@/views/Procurement.vue"),
   },
   {
     path: "/sales",
     name: "Sales",
-    component: () => import("@/views/sales/Dashboard.vue"),
+    component: () => import("@/views/Sales.vue"),
   },
   {
     path: "/ict",
     name: "ICT",
-    component: () => import("@/views/ict/Dashboard.vue"),
-  },
-  {
-    path: "/ict/new",
-    name: "ICTFormView",
-    component: () => import("@/views/ict/Form.vue"),
-  },
-  {
-    path: "/ict/list",
-    name: "ICTListView",
-    component: () => import("@/views/ict/List.vue"),
+    component: () => import("@/views/ICT.vue"),
   },
   {
     path: "/reservations",
-    name: "Reservations",
-    component: () => import("@/views/reservations/Dashboard.vue"),
-  },
-  {
-    path: "/reservations/new",
-    name: "ReservationsFormView",
-    component: () => import("@/views/reservations/Form.vue"),
-  },
-  {
-    path: "/reservations/list",
-    name: "ReservationsListView",
-    component: () => import("@/views/reservations/List.vue"),
+    name: "Reservation",
+    component: () => import("@/views/Reservations.vue"),
   },
 ]
 

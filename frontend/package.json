@@ -1,25 +1,29 @@
 {
-  "name": "oil-ops-frontend",
-  "type": "module",
+  "name": "geo-perations",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --base=/assets/oil_distribution/frontend/",
+    "build": "vite build && node build.js",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ionic/vue": "^7.8.6",
-    "@ionic/vue-router": "^7.8.6",
-    "frappe-ui": "^0.1.261",
-    "vue": "^3.5.13",
-    "vue-router": "^4.2.2"
+    "@ionic/vue": "^8.0.0",
+    "@ionic/vue-router": "^8.0.0",
+    "frappe-ui": "^0.1.0",
+    "ionicons": "^8.0.13",
+    "vue": "^3.5.0",
+    "vue-router": "^4.3.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^4.2.3",
-    "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.5",
-    "tailwindcss": "^3.4.15",
-    "vite": "^4.4.9"
+    "@iconify-json/lucide": "^1.2.117",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "unplugin-icons": "^23.0.1",
+    "unplugin-vue-components": "^32.1.0",
+    "vite": "^5.4.0"
   }
 }
