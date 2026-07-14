@@ -32,11 +32,13 @@
 <script setup>
 import { IonApp, IonSplitPane, IonMenu, IonHeader, IonToolbar, IonContent, IonList, IonItem, IonLabel, IonIcon, IonRouterOutlet } from "@ionic/vue"
 import { useRoute } from "vue-router"
-import { waterOutline, gridOutline, cartOutline, desktopOutline, serverOutline } from "ionicons/icons"
+import { waterOutline, gridOutline, cartOutline, desktopOutline, serverOutline, pulseOutline, analyticsOutline } from "ionicons/icons"
 
 const $route = useRoute()
 const nav = [
   { route: "/", label: "Dashboard", icon: gridOutline },
+  { route: "/command-center", label: "Command Center", icon: pulseOutline },
+  { route: "/stock", label: "Stock Dashboard", icon: analyticsOutline },
   { route: "/procurement", label: "Procurement", icon: cartOutline },
   { route: "/sales", label: "Sales", icon: desktopOutline },
   { route: "/ict", label: "ICT", icon: serverOutline },
