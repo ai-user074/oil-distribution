@@ -30,16 +30,6 @@ const routes = [
     name: "Reservation",
     component: () => import("@/views/Reservations.vue"),
   },
-  {
-    path: "/command-center",
-    name: "CommandCenter",
-    component: () => import("@/views/CommandCenter.vue"),
-  },
-  {
-    path: "/stock",
-    name: "StockDashboard",
-    component: () => import("@/views/StockDashboard.vue"),
-  },
 ]
 
 const router = createRouter({
