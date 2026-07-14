@@ -1,72 +1,91 @@
 <template>
-  <ion-page>
-    <ion-header class="ion-no-border">
-      <ion-toolbar>
-        <ion-buttons slot="start"><ion-menu-button /></ion-buttons>
-        <ion-title>Dashboard</ion-title>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content>
-      <div class="page anim-fade">
-        <div class="hero">
-          <div class="hero-title">GEOperations</div>
-          <div class="hero-desc">Oil distribution operations at a glance</div>
-        </div>
-
-        <div class="stats">
-          <div v-for="(s,i) in cards" :key="i" class="stat-card anim-up" :style="{ animationDelay: i*0.06+'s' }" style="cursor:pointer" @click="$router.push(s.route)">
-            <div class="stat-icon" :class="s.cls"><ion-icon :icon="s.icon" /></div>
-            <div class="stat-label">{{ s.label }}</div>
-            <div class="stat-value text-lg">{{ s.value }}</div>
-            <div class="text-xs text-gray-400 mt-1 flex items-center gap-1">
-              <ion-icon :icon="arrowForwardOutline" /> View {{ s.label }}
-            </div>
+  <ion-content>
+    <div class="page anim-fade">
+      <div class="hero">
+        <div class="flex items-center justify-between mb-4 relative z-10">
+          <div>
+            <div class="text-xs font-semibold tracking-wider opacity-70">GEOperations</div>
+            <div class="hero-title">Operations Dashboard</div>
+            <div class="hero-desc">Real-time overview of your business</div>
           </div>
         </div>
-
-        <div class="stack">
-          <div v-for="(item,i) in shortcuts" :key="i"
-            class="stack-item anim-up flex items-center gap-4" :style="{ animationDelay: (i+4)*0.05+'s' }"
-            style="cursor:pointer" @click="$router.push(item.route)">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center" :class="item.cls">
-              <ion-icon :icon="item.icon" class="text-lg" />
-            </div>
-            <div class="flex-1">
-              <div class="text-sm font-semibold text-gray-900">{{ item.label }}</div>
-              <div class="text-xs text-gray-400">{{ item.desc }}</div>
-            </div>
-            <ion-icon :icon="arrowForwardOutline" class="text-gray-300 text-sm" />
+        <div class="grid grid-cols-2 gap-3 mt-4 relative z-10">
+          <div v-for="s in quickStats" :key="s.label" class="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3">
+            <div class="flex items-center gap-2 text-xs font-medium text-white/70">{{ s.label }}</div>
+            <div class="text-xl font-extrabold text-white mt-0.5">{{ s.value }}</div>
           </div>
         </div>
       </div>
-    </ion-content>
-  </ion-page>
+
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        <div v-for="(m,i) in modules" :key="m.label"
+          class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 anim-up"
+          :style="{ animationDelay: i*0.06+'s' }" @click="$router.push(m.route)">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3" :class="m.cls">
+            <ion-icon :icon="m.icon" class="text-xl" />
+          </div>
+          <div class="text-sm font-bold text-gray-900">{{ m.label }}</div>
+          <div class="text-xs text-gray-400 mt-1">{{ m.desc }}</div>
+          <div class="flex items-center gap-1.5 mt-2.5 text-xs font-semibold" :class="m.accent">
+            <span>{{ m.value }}</span>
+            <ion-icon :icon="arrowForwardOutline" class="text-[10px]" />
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-4 py-3.5 border-b border-gray-50 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
+              <ion-icon :icon="flashOutline" class="text-white text-xs" />
+            </div>
+            <span class="text-sm font-bold text-gray-900">Quick Actions</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 divide-x divide-y divide-gray-50">
+          <div v-for="a in actions" :key="a.label"
+            class="flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-gray-50/80"
+            @click="$router.push(a.route)">
+            <ion-icon :icon="a.icon" class="text-base" :class="a.color" />
+            <span class="text-sm font-medium text-gray-700">{{ a.label }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ion-content>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue"
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonContent, IonMenuButton, IonIcon } from "@ionic/vue"
+import { IonContent, IonIcon } from "@ionic/vue"
 import { useRouter } from "vue-router"
-import { cartOutline, desktopOutline, serverOutline, waterOutline, gridOutline, arrowForwardOutline, swapHorizontalOutline, trendingUpOutline, peopleOutline, shieldCheckmarkOutline } from "ionicons/icons"
+import { arrowForwardOutline, flashOutline, swapHorizontalOutline, waterOutline, cartOutline, desktopOutline, serverOutline, addCircleOutline, listOutline, barChartOutline } from "ionicons/icons"
 import { frappeRequest } from "frappe-ui"
 
 const $router = useRouter()
-const cards = ref([])
-const shortcuts = [
-  { icon: swapHorizontalOutline, label: "ICT Operations", desc: "Inter-company stock transfers", route: "/ict", cls: "icon-indigo" },
-  { icon: waterOutline, label: "Reservations", desc: "Stock reservation management", route: "/reservations", cls: "icon-sky" },
-  { icon: cartOutline, label: "Procurement", desc: "Purchase orders & suppliers", route: "/procurement", cls: "icon-amber" },
-  { icon: desktopOutline, label: "Sales", desc: "Sales orders & customers", route: "/sales", cls: "icon-green" },
+const quickStats = ref([])
+const modules = ref([])
+
+const actions = [
+  { label: "ICT Transfer", icon: swapHorizontalOutline, color: "text-indigo-500", route: "/ict" },
+  { label: "New Reservation", icon: waterOutline, color: "text-sky-500", route: "/reservations" },
+  { label: "Purchase Orders", icon: cartOutline, color: "text-amber-500", route: "/procurement" },
+  { label: "Sales Orders", icon: desktopOutline, color: "text-emerald-500", route: "/sales" },
 ]
 
 onMounted(async () => {
   try {
     const d = await frappeRequest({ url: "oil_distribution.api.oil_ops.get_dashboard_kpis" })
-    cards.value = [
-      { label: "Procurement", value: d.pending_purchase_orders + " orders", icon: cartOutline, cls: "icon-amber", route: "/procurement" },
-      { label: "Sales", value: d.pending_sales_orders + " orders", icon: desktopOutline, cls: "icon-green", route: "/sales" },
-      { label: "ICT", value: d.ict_transfers + " transfers", icon: serverOutline, cls: "icon-purple", route: "/ict" },
-      { label: "Reservations", value: d.active_reservations + " active", icon: waterOutline, cls: "icon-blue", route: "/reservations" },
+    quickStats.value = [
+      { label: "Pending Orders", value: (d.pending_purchase_orders||0)+(d.pending_sales_orders||0) },
+      { label: "ICT Transfers", value: d.ict_transfers||0 },
+      { label: "Active Reservations", value: d.active_reservations||0 },
+    ]
+    modules.value = [
+      { label: "ICT Operations", desc: "Inter-company stock transfers", value: (d.ict_transfers||0)+" transfers", icon: serverOutline, cls: "icon-purple", accent: "text-purple-500", route: "/ict" },
+      { label: "Reservations", desc: "Stock reservation management", value: (d.active_reservations||0)+" active", icon: waterOutline, cls: "icon-sky", accent: "text-sky-500", route: "/reservations" },
+      { label: "Procurement", desc: "Purchase orders & suppliers", value: (d.pending_purchase_orders||0)+" pending", icon: cartOutline, cls: "icon-amber", accent: "text-amber-500", route: "/procurement" },
+      { label: "Sales", desc: "Sales orders & customers", value: (d.pending_sales_orders||0)+" pending", icon: desktopOutline, cls: "icon-green", accent: "text-emerald-500", route: "/sales" },
     ]
   } catch(e) { console.error(e) }
 })
