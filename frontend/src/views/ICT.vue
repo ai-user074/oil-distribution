@@ -5,63 +5,47 @@
         <ion-buttons slot="start">
           <ion-menu-button />
         </ion-buttons>
-        <ion-title>ICT</ion-title>
+        <ion-title>Inter-Company Transfer</ion-title>
       </ion-toolbar>
-      <div class="tab-bar">
-        <button v-for="t in tabs" :key="t.key"
-          :class="['tab-btn', { active: activeTab === t.key }]"
-          @click="activeTab = t.key">
-          {{ t.label }}
-        </button>
-      </div>
+      <ion-segment :value="activeTab" @ion-change="onTabChange">
+        <ion-segment-button value="dashboard">
+          <ion-icon :icon="statsChartOutline" />
+          <ion-label>Dashboard</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="list">
+          <ion-icon :icon="listOutline" />
+          <ion-label>Transfers</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="create">
+          <ion-icon :icon="addCircleOutline" />
+          <ion-label>New</ion-label>
+        </ion-segment-button>
+      </ion-segment>
     </ion-header>
 
     <IctDashboard v-if="activeTab === 'dashboard'" />
     <IctList v-if="activeTab === 'list'" />
-    <IctForm v-if="activeTab === 'create'" @created="activeTab = 'list'" />
+    <IctForm v-if="activeTab === 'create'" @created="onCreated" />
   </ion-page>
 </template>
 
 <script setup>
 import { ref } from "vue"
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonMenuButton } from "@ionic/vue"
-import IctDashboard from "./ict/Dashboard.vue"
-import IctList from "./ict/List.vue"
-import IctForm from "./ict/Form.vue"
+import {
+  IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
+  IonButtons, IonMenuButton, IonSegment, IonSegmentButton, IonIcon, IonLabel,
+} from "@ionic/vue"
+import { statsChartOutline, listOutline, addCircleOutline } from "ionicons/icons"
+import IctDashboard from "@/views/ict/Dashboard.vue"
+import IctList from "@/views/ict/List.vue"
+import IctForm from "@/views/ict/Form.vue"
 
 const activeTab = ref("dashboard")
-const tabs = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "list", label: "Transfers" },
-  { key: "create", label: "New Transfer" },
-]
-</script>
 
-<style scoped>
-.tab-bar {
-  display: flex;
-  gap: 4px;
-  padding: 8px 16px 0;
-  background: white;
-  border-bottom: 1px solid #f1f5f9;
+function onTabChange(e) {
+  activeTab.value = e.detail.value
 }
-.tab-btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #94a3b8;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s;
+function onCreated() {
+  activeTab.value = "list"
 }
-.tab-btn:hover {
-  color: #475569;
-}
-.tab-btn.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
-  font-weight: 600;
-}
-</style>
+</script>

@@ -459,3 +459,55 @@ def create_stock_reservation():
 	sr.insert()
 	sr.submit()
 	return {"name": sr.name, "status": sr.status}
+
+
+# ─── Dropdown Data ──────────────────────────────────────────
+
+@frappe.whitelist()
+def get_companies():
+	return frappe.get_all("Company", pluck="name")
+
+
+@frappe.whitelist()
+def get_items():
+	items = frappe.get_all("Item",
+		fields=["name", "item_name", "stock_uom"],
+		limit_page_length=200,
+		order_by="name asc",
+	)
+	return items
+
+
+@frappe.whitelist()
+def get_warehouses():
+	warehouses = frappe.get_all("Warehouse",
+		fields=["name", "warehouse_name", "company"],
+		limit_page_length=300,
+		order_by="name asc",
+	)
+	return warehouses
+
+
+@frappe.whitelist()
+def get_item_rate(item_code=None, company=None):
+	"""Fetch standard buying/selling rate for an item."""
+	if not item_code:
+		return {"rate": 0}
+	rate = frappe.db.get_value("Item Price", {
+		"item_code": item_code,
+		"price_list": "Standard Buying",
+		"selling": 0,
+	}, "price_list_rate")
+	return {"rate": rate or 0}
+
+
+@frappe.whitelist()
+def get_company_warehouses(company=None):
+	if not company:
+		return []
+	warehouses = frappe.get_all("Warehouse",
+		filters={"company": company, "is_group": 0, "disabled": 0},
+		fields=["name", "warehouse_name"],
+		limit_page_length=100,
+	)
+	return warehouses

@@ -1,20 +1,19 @@
 <template>
   <ion-app>
     <ion-split-pane content-id="main-content" when="md">
-      <ion-menu content-id="main-content">
+      <ion-menu content-id="main-content" side="start">
         <ion-header class="ion-no-border">
-          <ion-toolbar>
-            <div class="sidebar-brand">
-              <div class="brand-icon">G</div>
-              <div>
+          <ion-toolbar style="--min-height:48px">
+            <div class="brand">
+              <div class="brand-mark">G</div>
+              <div class="brand-text">
                 <div class="brand-name">GEOperations</div>
-                <div class="brand-sub">Oil Distribution</div>
               </div>
             </div>
           </ion-toolbar>
         </ion-header>
         <ion-content>
-          <div class="nav-section-label">Main Menu</div>
+          <div class="nav-section">Main</div>
           <ion-list>
             <ion-item
               v-for="tab in tabs"
@@ -28,6 +27,14 @@
               <ion-label>{{ tab.label }}</ion-label>
             </ion-item>
           </ion-list>
+
+          <div class="nav-section" style="margin-top: 12px;">Support</div>
+          <ion-list>
+            <ion-item detail="false" class="help-item" @click="openReport">
+              <ion-icon :icon="documentTextOutline" slot="start" />
+              <ion-label>Reports</ion-label>
+            </ion-item>
+          </ion-list>
         </ion-content>
       </ion-menu>
 
@@ -38,28 +45,17 @@
 
 <script setup>
 import {
-  IonApp,
-  IonSplitPane,
-  IonMenu,
-  IonHeader,
-  IonToolbar,
-  IonContent,
-  IonList,
-  IonItem,
-  IonLabel,
-  IonIcon,
-  IonRouterOutlet,
+  IonApp, IonSplitPane, IonMenu, IonHeader, IonToolbar,
+  IonContent, IonList, IonItem, IonLabel, IonIcon, IonRouterOutlet,
 } from "@ionic/vue"
-import { useRoute } from "vue-router"
+import { useRoute, useRouter } from "vue-router"
 import {
-  gridOutline,
-  cartOutline,
-  cashOutline,
-  hardwareChipOutline,
-  calendarOutline,
+  gridOutline, cartOutline, cashOutline,
+  hardwareChipOutline, calendarOutline, documentTextOutline,
 } from "ionicons/icons"
 
 const route = useRoute()
+const router = useRouter()
 
 const tabs = [
   { path: "/dashboards", label: "Dashboard", icon: gridOutline },
@@ -72,44 +68,47 @@ const tabs = [
 function isActive(path) {
   return route.path.startsWith(path)
 }
+
+function openReport() {
+  window.open("/app/intercompany-transfer-report", "_blank")
+}
 </script>
 
 <style scoped>
-.sidebar-brand {
+.brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 0;
+  gap: 10px;
+  padding: 2px 0;
 }
-.brand-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   background: linear-gradient(135deg, #2563eb, #3b82f6);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(37,99,235,0.3);
 }
 .brand-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #0f172a;
-  line-height: 1.2;
 }
-.brand-sub {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 500;
-}
-.nav-section-label {
-  font-size: 10px;
-  font-weight: 600;
+.nav-section {
+  font-size: 9px;
+  font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 16px 16px 8px;
+  padding: 12px 14px 4px;
+}
+.help-item {
+  --color: #94a3b8;
+  font-size: 12px;
 }
 </style>

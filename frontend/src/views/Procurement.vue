@@ -8,39 +8,41 @@
         <ion-title>Procurement</ion-title>
       </ion-toolbar>
     </ion-header>
-    <ion-content class="ion-padding">
-      <div class="space-y-5">
+    <ion-content scroll-y="true">
+      <div class="content-pad space-y-4">
         <div class="grid grid-cols-2 gap-3">
-          <div v-for="k in kpis" :key="k.label"
-            class="bg-white rounded-2xl p-4 border border-gray-100">
-            <div class="stat-label">{{ k.label }}</div>
-            <div class="stat-value mt-0.5">{{ k.value }}</div>
+          <div v-for="k in kpiData" :key="k.label" class="gradient-card slide-up" :class="k.color">
+            <div class="icon-wrap">
+              <ion-icon :icon="k.icon" style="font-size:18px" />
+            </div>
+            <div style="font-size:11px;font-weight:500;opacity:.8">{{ k.label }}</div>
+            <div style="font-size:22px;font-weight:800;margin-top:2px">{{ k.value }}</div>
           </div>
         </div>
 
         <div>
-          <div class="section-title">Recent Purchase Orders</div>
-          <div v-if="orders.length" class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Supplier</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="po in orders" :key="po.name">
-                  <td class="font-medium text-gray-900">{{ po.name }}</td>
-                  <td>{{ po.supplier }}</td>
-                  <td>{{ fmt(po.total) }}</td>
-                  <td><span class="badge" :class="statusClass(po.status)">{{ po.status }}</span></td>
-                </tr>
-              </tbody>
-            </table>
+          <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:10px">
+            Pending Orders
+            <span style="font-size:12px;font-weight:500;color:#64748b;margin-left:6px">({{ orders.length }})</span>
           </div>
-          <p v-else class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl border border-gray-100">Loading...</p>
+          <div v-if="orders.length" class="space-y-2">
+            <div v-for="po in orders" :key="po.name" class="list-item slide-up">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="list-item-primary">{{ po.name }}</div>
+                  <div class="list-item-secondary">{{ po.supplier }}</div>
+                </div>
+                <div class="text-right">
+                  <div class="text-sm font-bold text-gray-900">{{ fmt(po.total) }}</div>
+                  <span class="badge mt-1" :class="badgeClass(po.status)">{{ shortStatus(po.status) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="bg-white rounded-xl p-8 text-center border border-gray-100">
+            <ion-icon :icon="cartOutline" style="font-size:32px;color:#cbd5e1;margin-bottom:8px" />
+            <p class="text-sm text-gray-400">Loading orders...</p>
+          </div>
         </div>
       </div>
     </ion-content>
@@ -49,39 +51,33 @@
 
 <script setup>
 import { ref, onMounted } from "vue"
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonMenuButton } from "@ionic/vue"
+import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonMenuButton, IonIcon } from "@ionic/vue"
+import { cartOutline, cubeOutline, receiptOutline, peopleOutline } from "ionicons/icons"
 import { frappeRequest } from "frappe-ui"
 
-const kpis = ref([
-  { label: "Total Spend", value: "..." },
-  { label: "PO Count", value: "..." },
-  { label: "Pending", value: "..." },
-  { label: "Suppliers", value: "..." },
-])
+const kpiData = ref([])
 const orders = ref([])
 
-function fmt(v) {
-  return "₹" + Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })
-}
+const icons = [cartOutline, cubeOutline, receiptOutline, peopleOutline]
+const colors = ["grad-blue", "grad-green", "grad-amber", "grad-purple"]
 
-function statusClass(s) {
-  if (!s) return "badge-gray"
-  const map = { "To Deliver and Bill": "badge-amber", "Completed": "badge-green", "Closed": "badge-gray" }
-  return map[s] || "badge-blue"
+function fmt(v) { return "₹" + Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 }) }
+function shortStatus(s) { return (s || "").replace("To Deliver and Bill", "Pending").replace("To Bill", "Bill") }
+function badgeClass(s) {
+  const m = { "To Deliver and Bill": "badge-amber", "Completed": "badge-green", "Closed": "badge-gray" }
+  return m[s] || "badge-blue"
 }
 
 onMounted(async () => {
   try {
     const data = await frappeRequest({ url: "oil_distribution.api.oil_ops.get_procurement_kpis" })
-    kpis.value = [
-      { label: "Total Spend", value: fmt(data.total_spend) },
-      { label: "PO Count", value: data.po_count },
-      { label: "Pending", value: data.pending_pos },
-      { label: "Suppliers", value: data.supplier_count },
+    kpiData.value = [
+      { label: "Total Spend", value: fmt(data.total_spend), icon: cartOutline, color: "grad-blue" },
+      { label: "PO Count", value: data.po_count, icon: cubeOutline, color: "grad-green" },
+      { label: "Pending", value: data.pending_pos, icon: receiptOutline, color: "grad-amber" },
+      { label: "Suppliers", value: data.supplier_count, icon: peopleOutline, color: "grad-purple" },
     ]
     orders.value = await frappeRequest({ url: "oil_distribution.api.oil_ops.get_pending_purchase_orders", params: { limit: 10 } })
-  } catch (e) {
-    console.error("Procurement error:", e)
-  }
+  } catch (e) { console.error("Procurement error:", e) }
 })
 </script>

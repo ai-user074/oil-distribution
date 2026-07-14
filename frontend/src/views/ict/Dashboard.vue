@@ -1,32 +1,37 @@
 <template>
-  <ion-content class="ion-padding">
-    <div class="space-y-5">
+  <ion-content scroll-y="true">
+    <div class="content-pad space-y-4">
       <div class="grid grid-cols-2 gap-3">
-        <div v-for="k in kpiList" :key="k.label"
-          class="rounded-2xl p-4 text-white" :class="k.gradient">
-          <div class="text-white/80 text-xs font-medium uppercase tracking-wide">{{ k.label }}</div>
-          <div class="text-2xl font-bold mt-1">{{ k.value }}</div>
+        <div v-for="k in kpis" :key="k.label" class="gradient-card slide-up" :class="k.color">
+          <div class="icon-wrap">
+            <ion-icon :icon="k.icon" style="font-size:18px" />
+          </div>
+          <div style="font-size:11px;font-weight:500;opacity:.8">{{ k.label }}</div>
+          <div style="font-size:22px;font-weight:800;margin-top:2px">{{ k.value }}</div>
         </div>
       </div>
 
       <div>
-        <div class="section-title">Routes</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:10px">Routes</div>
         <div v-if="routes.length" class="space-y-2">
-          <div v-for="r in routes" :key="r.company + r.to_company" class="route-card">
+          <div v-for="r in routes" :key="r.company + r.to_company" class="list-item slide-up">
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2 text-sm">
-                <span class="font-semibold text-gray-900">{{ r.company }}</span>
-                <span class="text-gray-300">&rarr;</span>
-                <span class="font-semibold text-gray-900">{{ r.to_company }}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-gray-900">{{ r.company }}</span>
+                <span class="text-blue-300 text-xs">&rarr;</span>
+                <span class="text-sm font-semibold text-gray-900">{{ r.to_company }}</span>
               </div>
               <div class="text-right">
-                <div class="text-sm font-bold text-gray-900">{{ r.cnt }} transfers</div>
+                <div class="text-sm font-bold text-gray-900">{{ r.cnt }} <span class="text-xs font-normal text-gray-400">transfers</span></div>
                 <div class="text-xs text-gray-400">{{ r.qty }} qty &middot; {{ fmt(r.value) }}</div>
               </div>
             </div>
           </div>
         </div>
-        <p v-else class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl border border-gray-100">No routes found</p>
+        <div v-else class="bg-white rounded-xl p-8 text-center border border-gray-100">
+          <ion-icon :icon="swapHorizontalOutline" style="font-size:32px;color:#cbd5e1;margin-bottom:8px" />
+          <p class="text-sm text-gray-400">No routes yet</p>
+        </div>
       </div>
     </div>
   </ion-content>
@@ -34,30 +39,25 @@
 
 <script setup>
 import { ref, onMounted } from "vue"
-import { IonContent } from "@ionic/vue"
+import { IonContent, IonIcon } from "@ionic/vue"
+import { swapHorizontalOutline, cashOutline, cubeOutline, flagOutline, swapHorizontal } from "ionicons/icons"
 import { getIctKpis, getIctRoutes } from "@/api/ict"
 
-const kpis = ref({ total_volume: 0, ict_value: 0, ict_count: 0, active_routes: 0, pending_icts: 0 })
+const kpis = ref([])
 const routes = ref([])
 
-const kpiList = ref([])
-
-function fmt(v) {
-  return "₹" + Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })
-}
+function fmt(v) { return "₹" + Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 }) }
 
 onMounted(async () => {
   try {
-    kpis.value = await getIctKpis()
-    kpiList.value = [
-      { label: "Total Volume", value: kpis.value.total_volume, gradient: "gradient-blue" },
-      { label: "Total Value", value: fmt(kpis.value.ict_value), gradient: "gradient-green" },
-      { label: "Transfers", value: kpis.value.ict_count, gradient: "gradient-purple" },
-      { label: "Pending", value: kpis.value.pending_icts, gradient: "gradient-amber" },
+    const data = await getIctKpis()
+    kpis.value = [
+      { label: "Volume", value: data.total_volume, icon: cubeOutline, color: "grad-blue" },
+      { label: "Value", value: fmt(data.ict_value), icon: cashOutline, color: "grad-green" },
+      { label: "Transfers", value: data.ict_count, icon: swapHorizontalOutline, color: "grad-purple" },
+      { label: "Pending", value: data.pending_icts, icon: flagOutline, color: "grad-amber" },
     ]
     routes.value = await getIctRoutes()
-  } catch (e) {
-    console.error("ICT Dashboard error:", e)
-  }
+  } catch (e) { console.error("ICT Dashboard error:", e) }
 })
 </script>
